@@ -4,31 +4,31 @@
     "product_name": "라운드랩 1025 독도 토너",
     "brand": "라운드랩",
     "filename": "product_1_roundlab_toner.csv",
-    "review_count": 0,
-    "avg_rating": 0.0
+    "review_count": 31,
+    "avg_rating": 5.0
   },
   "2": {
     "product_id": 2,
     "product_name": "아누아 어성초 77 수딩 토너",
     "brand": "아누아",
     "filename": "product_2_anua_toner.csv",
-    "review_count": 0,
-    "avg_rating": 0.0
+    "review_count": 89,
+    "avg_rating": 5.0
   },
   "3": {
     "product_id": 3,
     "product_name": "토리든 다이브인 히알루론산 세럼",
     "brand": "토리든",
     "filename": "product_3_torriden_serum.csv",
-    "review_count": 0,
-    "avg_rating": 0.0
+    "review_count": 104,
+    "avg_rating": 5.0
   },
   "4": {
     "product_id": 4,
     "product_name": "구달 청귤 비타C 잡티케어 세럼",
     "brand": "구달",
     "filename": "product_4_goodal_serum.csv",
-    "review_count": 0,
-    "avg_rating": 0.0
+    "review_count": 43,
+    "avg_rating": 5.0
   }
 }
