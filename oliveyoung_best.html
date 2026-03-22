@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>올리브영 랭킹</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Noto Sans KR',sans-serif;background:#fff;color:#222;min-width:1024px}
+
+/* ── GNB ── */
+.gnb-top{height:32px;background:#f5f5f5;display:flex;align-items:center;justify-content:flex-end;padding:0 40px;font-size:11px;color:#888;gap:14px;border-bottom:1px solid #eee}
+.gnb-top a{color:#888;text-decoration:none}
+.gnb-top a:hover{color:#333}
+.gnb{height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 40px;border-bottom:1px solid #e0e0e0}
+.logo{font-size:22px;font-weight:700;color:#1a1a1a;letter-spacing:-1px;text-decoration:none}
+.logo span{color:#4CAF50}
+.gnb-nav{display:flex;gap:28px;align-items:center}
+.gnb-nav a{font-size:13px;font-weight:500;color:#333;text-decoration:none;padding:4px 0;position:relative}
+.gnb-nav a:hover{color:#4CAF50}
+.gnb-nav a.active{color:#4CAF50;font-weight:700}
+.gnb-nav a.active::after{content:'';position:absolute;bottom:-17px;left:0;right:0;height:2px;background:#4CAF50}
+.gnb-right{display:flex;align-items:center;gap:16px}
+.gnb-right .search-box{display:flex;align-items:center;border:1px solid #ddd;border-radius:20px;padding:5px 14px;gap:8px;background:#fafafa}
+.gnb-right .search-box input{border:none;outline:none;font-size:13px;background:transparent;width:160px;font-family:'Noto Sans KR',sans-serif}
+.gnb-right .search-box svg{color:#999;flex-shrink:0}
+.gnb-icon{display:flex;gap:16px;align-items:center}
+.gnb-icon a{font-size:11px;color:#666;text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:2px}
+.gnb-icon a svg{width:20px;height:20px;color:#555}
+
+/* ── CATEGORY NAV ── */
+.cat-nav{height:44px;background:#fff;border-bottom:1px solid #e8e8e8;display:flex;align-items:center;justify-content:center;gap:32px}
+.cat-nav a{font-size:12px;color:#555;text-decoration:none;font-weight:400;white-space:nowrap;padding:4px 0}
+.cat-nav a:hover{color:#4CAF50}
+
+/* ── HERO BANNER ── */
+.hero{background:linear-gradient(135deg,#0d1b2a 0%,#1a3a2e 40%,#0a2e1a 100%);
+height:120px;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}
+.hero-inner{display:flex;align-items:center;gap:20px;z-index:1}
+.hero-badge{background:#4CAF50;color:#fff;font-size:10px;font-weight:700;
+padding:3px 8px;border-radius:2px;letter-spacing:1px;text-transform:uppercase}
+.hero h1{font-size:28px;font-weight:700;color:#fff;letter-spacing:-1px}
+.hero h1 span{color:#80ffb0}
+.hero p{font-size:13px;color:rgba(255,255,255,.6);margin-top:4px}
+.hero-dots{position:absolute;right:120px;display:flex;gap:8px}
+.hero-dot{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.25)}
+.hero-dot.on{background:#4CAF50;width:20px;border-radius:3px}
+
+/* ── RANK TABS ── */
+.rank-section{max-width:1200px;margin:0 auto;padding:32px 20px 60px}
+.rank-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
+.rank-title{font-size:20px;font-weight:700;color:#1a1a1a}
+.rank-title span{color:#4CAF50}
+.rank-tabs{display:flex;gap:0;border:1px solid #ddd;border-radius:6px;overflow:hidden}
+.rank-tab{padding:7px 18px;font-size:12px;font-weight:500;color:#666;cursor:pointer;
+background:#fff;border:none;font-family:'Noto Sans KR',sans-serif;transition:all .15s}
+.rank-tab:not(:last-child){border-right:1px solid #ddd}
+.rank-tab.on{background:#1a1a1a;color:#fff}
+.rank-tab:hover:not(.on){background:#f5f5f5}
+.rank-refresh{display:flex;align-items:center;gap:6px;font-size:11px;color:#aaa}
+.rank-refresh svg{width:14px;height:14px}
+
+/* ── PRODUCT GRID ── */
+.product-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
+
+/* ── PRODUCT CARD ── */
+.product-card{cursor:pointer;transition:transform .2s}
+.product-card:hover{transform:translateY(-4px)}
+.product-card:hover .product-img-wrap{box-shadow:0 8px 24px rgba(0,0,0,.12)}
+.product-card.clickable .product-img-wrap::after{
+  content:'AI 리뷰 분석 →';
+  position:absolute;bottom:0;left:0;right:0;
+  background:linear-gradient(to top,rgba(76,175,80,.92),transparent);
+  color:#fff;font-size:12px;font-weight:600;
+  padding:16px 12px 10px;
+  opacity:0;transition:opacity .2s;text-align:center;letter-spacing:.5px
+}
+.product-card.clickable:hover .product-img-wrap::after{opacity:1}
+
+.product-img-wrap{
+  position:relative;background:#f7f7f7;border-radius:8px;
+  overflow:hidden;aspect-ratio:1;transition:box-shadow .2s
+}
+.product-img-wrap img{width:100%;height:100%;object-fit:cover;display:block}
+.rank-badge{
+  position:absolute;top:8px;left:8px;
+  width:28px;height:28px;border-radius:50%;
+  background:#1a1a1a;color:#fff;
+  font-size:13px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Noto Sans KR',sans-serif
+}
+.rank-badge.top3{background:#4CAF50}
+.wish-btn{
+  position:absolute;top:8px;right:8px;
+  width:28px;height:28px;border-radius:50%;
+  background:rgba(255,255,255,.9);
+  display:flex;align-items:center;justify-content:center;
+  border:none;cursor:pointer;transition:all .15s
+}
+.wish-btn:hover{background:#fff;transform:scale(1.1)}
+.wish-btn svg{width:14px;height:14px;color:#ccc}
+.wish-btn.on svg{color:#ff4d6a;fill:#ff4d6a}
+
+.new-badge{
+  position:absolute;bottom:8px;left:8px;
+  background:#ff6b35;color:#fff;font-size:9px;font-weight:700;
+  padding:2px 7px;border-radius:2px;letter-spacing:.5px
+}
+.hot-badge{
+  position:absolute;bottom:8px;left:8px;
+  background:#222;color:#80ffb0;font-size:9px;font-weight:700;
+  padding:2px 7px;border-radius:2px;letter-spacing:.5px
+}
+.sale-badge{
+  position:absolute;bottom:8px;left:8px;
+  background:#ff3d5a;color:#fff;font-size:9px;font-weight:700;
+  padding:2px 7px;border-radius:2px;letter-spacing:.5px
+}
+
+.product-info{padding:10px 2px 0}
+.brand-name{font-size:11px;color:#888;margin-bottom:3px}
+.product-name{font-size:13px;font-weight:500;color:#1a1a1a;line-height:1.4;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.price-row{display:flex;align-items:center;gap:6px;margin-top:7px}
+.price-original{font-size:12px;color:#bbb;text-decoration:line-through}
+.price-sale-rate{font-size:13px;font-weight:700;color:#ff3d5a}
+.price-current{font-size:15px;font-weight:700;color:#1a1a1a}
+.review-row{display:flex;align-items:center;gap:4px;margin-top:5px}
+.stars{display:flex;gap:1px}
+.star{width:11px;height:11px;color:#FFB400;fill:#FFB400}
+.star.half{color:#ddd;fill:#ddd}
+.review-count{font-size:11px;color:#aaa}
+
+/* ── AI ANALYSIS OVERLAY ── */
+.ai-label{
+  display:inline-flex;align-items:center;gap:4px;
+  background:#f0fff4;border:1px solid #b7ebca;
+  color:#1b7a3a;font-size:10px;font-weight:600;
+  padding:2px 8px;border-radius:10px;margin-top:6px
+}
+.ai-label::before{content:'✦';font-size:9px}
+
+/* ── GHOST CARDS (products 5+) ── */
+.ghost-card .product-img-wrap{background:#f5f5f5}
+.ghost-card .product-name{color:#bbb;background:#f0f0f0;height:13px;border-radius:3px;margin:3px 0}
+.ghost-card .price-current{background:#f0f0f0;height:15px;width:60px;border-radius:3px;color:transparent}
+
+/* ── MORE ROW ── */
+.more-row{text-align:center;margin-top:32px}
+.more-btn{display:inline-flex;align-items:center;gap:6px;
+border:1px solid #ddd;background:#fff;padding:10px 28px;
+font-size:13px;font-weight:500;color:#555;cursor:pointer;
+border-radius:4px;font-family:'Noto Sans KR',sans-serif;transition:all .15s}
+.more-btn:hover{background:#f5f5f5;border-color:#bbb}
+.more-btn svg{width:14px;height:14px}
+
+/* ── FOOTER ── */
+footer{background:#1a1a1a;color:#888;padding:32px 40px;margin-top:40px;font-size:11px}
+footer .f-top{display:flex;justify-content:space-between;margin-bottom:20px}
+footer .f-logo{font-size:18px;font-weight:700;color:#fff;letter-spacing:-0.5px}
+footer .f-logo span{color:#4CAF50}
+footer .f-links{display:flex;gap:20px}
+footer .f-links a{color:#888;text-decoration:none;font-size:11px}
+footer .f-links a:hover{color:#ccc}
+footer .f-bottom{color:#555;line-height:1.7}
+
+/* ── MODAL ── */
+.modal-overlay{
+  display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);
+  z-index:1000;align-items:center;justify-content:center
+}
+.modal-overlay.show{display:flex}
+.modal{background:#fff;border-radius:12px;padding:32px;max-width:480px;width:90%;
+position:relative;animation:modalIn .25s ease}
+@keyframes modalIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+.modal-close{position:absolute;top:16px;right:16px;border:none;background:none;
+font-size:20px;cursor:pointer;color:#aaa;line-height:1}
+.modal-close:hover{color:#333}
+.modal h2{font-size:18px;font-weight:700;margin-bottom:8px;color:#1a1a1a}
+.modal p{font-size:13px;color:#666;line-height:1.6;margin-bottom:20px}
+.modal-btn{display:flex;gap:10px}
+.modal-btn a{flex:1;text-align:center;padding:12px;border-radius:6px;
+font-size:13px;font-weight:600;text-decoration:none;transition:all .15s}
+.btn-primary{background:#4CAF50;color:#fff}
+.btn-primary:hover{background:#388e3c}
+.btn-secondary{background:#f5f5f5;color:#555;border:1px solid #ddd}
+.btn-secondary:hover{background:#eee}
+</style>
+</head>
+<body>
+
+<!-- GNB TOP -->
+<div class="gnb-top">
+  <a href="#">회원가입</a>
+  <a href="#">로그인</a>
+  <a href="#">고객센터</a>
+  <a href="#">오늘드림</a>
+  <a href="#">올영Pick</a>
+</div>
+
+<!-- GNB -->
+<nav class="gnb">
+  <a href="#" class="logo">olive<span>young</span></a>
+  <div class="gnb-nav">
+    <a href="#">올영PICK</a>
+    <a href="#">쇼핑</a>
+    <a href="#" class="active">랭킹</a>
+    <a href="#">기획전</a>
+    <a href="#">브랜드</a>
+    <a href="#">체험단</a>
+    <a href="#">라이브</a>
+  </div>
+  <div class="gnb-right">
+    <div class="search-box">
+      <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/>
+      </svg>
+      <input type="text" placeholder="검색어를 입력하세요">
+    </div>
+    <div class="gnb-icon">
+      <a href="#">
+        <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+        </svg>
+        찜
+      </a>
+      <a href="#">
+        <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+          <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/>
+          <path d="M16 10a4 4 0 0 1-8 0"/>
+        </svg>
+        장바구니
+      </a>
+      <a href="#">
+        <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+        </svg>
+        MY
+      </a>
+    </div>
+  </div>
+</nav>
+
+<!-- CATEGORY NAV -->
+<div class="cat-nav">
+  <a href="#">스킨케어</a>
+  <a href="#">마스크팩</a>
+  <a href="#">클렌징</a>
+  <a href="#">선케어</a>
+  <a href="#">베이스메이크업</a>
+  <a href="#">아이메이크업</a>
+  <a href="#">립메이크업</a>
+  <a href="#">향수/바디</a>
+  <a href="#">헤어케어</a>
+  <a href="#">네일</a>
+  <a href="#">건강식품</a>
+  <a href="#">푸드</a>
+</div>
+
+<!-- HERO BANNER -->
+<div class="hero">
+  <div class="hero-inner">
+    <div>
+      <div class="hero-badge">RANKING</div>
+      <h1>올리브영 <span>베스트</span></h1>
+      <p>실시간 판매 데이터 기반 · 매시간 업데이트</p>
+    </div>
+  </div>
+  <div class="hero-dots">
+    <div class="hero-dot on"></div>
+    <div class="hero-dot"></div>
+    <div class="hero-dot"></div>
+  </div>
+</div>
+
+<!-- RANKING SECTION -->
+<div class="rank-section">
+  <div class="rank-header">
+    <div class="rank-title">스킨케어 <span>랭킹</span></div>
+    <div style="display:flex;gap:12px;align-items:center">
+      <div class="rank-tabs">
+        <button class="rank-tab on" onclick="setTab(this,'skincare')">스킨케어</button>
+        <button class="rank-tab" onclick="setTab(this,'mask')">마스크팩</button>
+        <button class="rank-tab" onclick="setTab(this,'cleanser')">클렌징</button>
+        <button class="rank-tab" onclick="setTab(this,'sun')">선케어</button>
+      </div>
+      <div class="rank-refresh">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-5"/>
+        </svg>
+        방금 전 업데이트
+      </div>
+    </div>
+  </div>
+
+  <!-- PRODUCT GRID -->
+  <div class="product-grid" id="productGrid">
+
+    <!-- RANK 1 — 라운드랩 독도 토너 (CLICKABLE) -->
+    <div class="product-card clickable" onclick="openProduct(1)">
+      <div class="product-img-wrap">
+        <div style="width:100%;height:100%;background:linear-gradient(135deg,#e8f4fd,#c5e3f7);
+          display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px">
+          <div style="width:60px;height:80px;background:linear-gradient(160deg,#1a5fa8,#2980b9);
+            border-radius:6px;display:flex;align-items:center;justify-content:center;
+            box-shadow:0 4px 12px rgba(26,95,168,.3)">
+            <span style="font-size:9px;font-weight:700;color:#fff;text-align:center;line-height:1.3;padding:4px">독도<br>토너</span>
+          </div>
+          <span style="font-size:9px;color:#1a5fa8;font-weight:600">ROUND LAB</span>
+        </div>
+        <div class="rank-badge top3">1</div>
+        <button class="wish-btn"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button>
+        <div class="hot-badge">HOT</div>
+      </div>
+      <div class="product-info">
+        <div class="brand-name">라운드랩</div>
+        <div class="product-name">1025 독도 토너 200ml</div>
+        <div class="price-row">
+          <span class="price-sale-rate">15%</span>
+          <span class="price-current">16,900원</span>
+        </div>
+        <div class="review-row">
+          <div class="stars">
+            <svg class="star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            <svg class="star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            <svg class="star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            <svg class="star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            <svg class="star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          </div>
+          <span class="review-count">(48,203)</span>
+        </div>
+        <div class="ai-label">AI 리뷰 분석 가능</div>
+      </div>
+    </div>
+
+    <!-- RANK 2 — 아누아 어성초 토너 (CLICKABLE) -->
+    <div class="product-card clickable" onclick="openProduct(2)">
+      <div class="product-img-wrap">
+        <div style="width:100%;height:100%;background:linear-gradient(135deg,#f0faf0,#d4f0d4);
+          display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px">
+          <div style="width:60px;height:80px;background:linear-gradient(160deg,#2d6a2d,#4caf50);
+            border-radius:6px;display:flex;align-items:center;justify-content:center;
+            box-shadow:0 4px 12px rgba(45,106,45,.3)">
+            <span style="font-size:9px;font-weight:700;color:#fff;text-align:center;line-height:1.3;padding:4px">어성초<br>토너</span>
+          </div>
+          <span style="font-size:9px;color:#2d6a2d;font-weight:600">ANUA</span>
+        </div>
+        <div class="rank-badge top3">2</div>
+        <button class="wish-btn"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button>
+      </div>
+      <div class="product-info">
+        <div class="brand-name">아누아</div>
+        <div class="product-name">어성초 77 수딩 토너 250ml</div>
+        <div class="price-row">
+          <span class="price-current">18,000원</span>
+        </div>
+        <div class="review-row">
+          <div class="stars">
+            <svg class="star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            <svg class="star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            <svg class="star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            <svg class="star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            <svg class="star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          </div>
+          <span class="review-count">(32,891)</span>
+        </div>
+        <div class="ai-label">AI 리뷰 분석 가능</div>
+      </div>
+    </div>
+
+    <!-- RANK 3 — 토리든 히알루론산 세럼 (CLICKABLE) -->
+    <div class="product-card clickable" onclick="openProduct(3)">
+      <div class="product-img-wrap">
+        <div style="width:100%;height:100%;background:linear-gradient(135deg,#e8f0fe,#c5d4f7);
+          display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px">
+          <div style="width:60px;height:80px;background:linear-gradient(160deg,#3949ab,#5c6bc0);
+            border-radius:50px 50px 8px 8px;display:flex;align-items:center;justify-content:center;
+            box-shadow:0 4px 12px rgba(57,73,171,.3)">
+            <span style="font-size:9px;font-weight:700;color:#fff;text-align:center;line-height:1.3;padding:4px">DIVE<br>IN</span>
+          </div>
+          <span style="font-size:9px;color:#3949ab;font-weight:600">TORRIDEN</span>
+        </div>
+        <div class="rank-badge top3">3</div>
+        <button class="wish-btn"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button>
+        <div class="new-badge">NEW</div>
+      </div>
+      <div class="product-info">
+        <div class="brand-name">토리든</div>
+        <div class="product-name">다이브인 저분자 히알루론산 세럼 50ml</div>
+        <div class="price-row">
+          <span class="price-original">32,000원</span>
+          <span class="price-sale-rate">10%</span>
+          <span class="price-current">28,800원</span>
+        </div>
+        <div class="review-row">
+          <div class="stars">
+            <svg class="star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            <svg class="star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            <svg class="star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            <svg class="star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            <svg class="star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          </div>
+          <span class="review-count">(27,445)</span>
+        </div>
+        <div class="ai-label">AI 리뷰 분석 가능</div>
+      </div>
+    </div>
+
+    <!-- RANK 4 — 구달 청귤 세럼 (CLICKABLE) -->
+    <div class="product-card clickable" onclick="openProduct(4)">
+      <div class="product-img-wrap">
+        <div style="width:100%;height:100%;background:linear-gradient(135deg,#fffde7,#fff9c4);
+          display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px">
+          <div style="width:60px;height:80px;background:linear-gradient(160deg,#f57f17,#ffa000);
+            border-radius:8px;display:flex;align-items:center;justify-content:center;
+            box-shadow:0 4px 12px rgba(245,127,23,.3)">
+            <span style="font-size:9px;font-weight:700;color:#fff;text-align:center;line-height:1.3;padding:4px">청귤<br>비타C</span>
+          </div>
+          <span style="font-size:9px;color:#e65100;font-weight:600">GOODAL</span>
+        </div>
+        <div class="rank-badge top3">4</div>
+        <button class="wish-btn"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button>
+        <div class="sale-badge">SALE</div>
+      </div>
+      <div class="product-info">
+        <div class="brand-name">구달</div>
+        <div class="product-name">청귤 비타C 잡티케어 세럼 알파 30ml</div>
+        <div class="price-row">
+          <span class="price-original">29,000원</span>
+          <span class="price-sale-rate">20%</span>
+          <span class="price-current">23,200원</span>
+        </div>
+        <div class="review-row">
+          <div class="stars">
+            <svg class="star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            <svg class="star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            <svg class="star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            <svg class="star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            <svg class="star half" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          </div>
+          <span class="review-count">(21,067)</span>
+        </div>
+        <div class="ai-label">AI 리뷰 분석 가능</div>
+      </div>
+    </div>
+
+  </div><!-- /product-grid -->
+
+  <div class="more-row">
+    <button class="more-btn">
+      더보기
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <polyline points="6 9 12 15 18 9"/>
+      </svg>
+    </button>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="f-top">
+    <div class="f-logo">olive<span>young</span></div>
+    <div class="f-links">
+      <a href="#">이용약관</a>
+      <a href="#">개인정보처리방침</a>
+      <a href="#">고객센터</a>
+      <a href="#">사업자정보확인</a>
+    </div>
+  </div>
+  <div class="f-bottom">
+    CJ올리브영(주) | 대표이사: 구창근 | 사업자등록번호: 211-86-72462<br>
+    통신판매업 신고번호: 제2014-서울강남-01521호 | 서울특별시 중구 세종대로 9길 53<br>
+    © CJ Oliveyoung Co., Ltd. All Rights Reserved.
+  </div>
+</footer>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">×</button>
+    <h2 id="modal-title">상품명</h2>
+    <p id="modal-desc">이 상품의 AI 리뷰 분석을 확인하시겠습니까?<br>수집된 리뷰 데이터를 기반으로 감성 분석, 페르소나 매핑, 미충족 니즈를 분석합니다.</p>
+    <div class="modal-btn">
+      <a href="#" id="modal-link" class="btn-primary">🤖 AI 분석 보기</a>
+      <a href="#" onclick="closeModal();return false" class="btn-secondary">닫기</a>
+    </div>
+  </div>
+</div>
+
+<script>
+const PRODUCTS = {
+  1: { name: '라운드랩 1025 독도 토너', page: '?product=1' },
+  2: { name: '아누아 어성초 77 수딩 토너', page: '?product=2' },
+  3: { name: '토리든 다이브인 히알루론산 세럼', page: '?product=3' },
+  4: { name: '구달 청귤 비타C 잡티케어 세럼', page: '?product=4' },
+};
+
+function openProduct(id) {
+  const p = PRODUCTS[id];
+  document.getElementById('modal-title').textContent = p.name;
+  document.getElementById('modal-link').href = 'app.py' + p.page;
+  // Streamlit 로컬 서버로 연결 (포트 8501)
+  document.getElementById('modal-link').href =
+    'http://localhost:8501' + p.page;
+  document.getElementById('modal-link').target = '_blank';
+  document.getElementById('modal').classList.add('show');
+}
+function closeModal() {
+  document.getElementById('modal').classList.remove('show');
+}
+document.getElementById('modal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+function setTab(el, cat) {
+  document.querySelectorAll('.rank-tab').forEach(t => t.classList.remove('on'));
+  el.classList.add('on');
+  const titles = {skincare:'스킨케어',mask:'마스크팩',cleanser:'클렌징',sun:'선케어'};
+  document.querySelector('.rank-title').innerHTML =
+    titles[cat] + ' <span>랭킹</span>';
+}
+
+// wish btn toggle
+document.querySelectorAll('.wish-btn').forEach(btn => {
+  btn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    this.classList.toggle('on');
+  });
+});
+</script>
+</body>
+</html>

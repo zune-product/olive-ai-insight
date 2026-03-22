@@ -1,23 +1,69 @@
+"""
+app.py
+──────
+올리브영 AI 리뷰 인사이트 - 메인 Streamlit 앱
+
+구조:
+  1. 올리브영 베스트 페이지 클론 (oliveyoung_best.html) 임베드
+  2. ?product=N 파라미터로 상품 선택 → 해당 CSV 읽기
+  3. Claude API로 분석 → 인터랙티브 대시보드 출력
+"""
+
+import os
+import json
+import re
 import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-import json
-import time
-import re
-import os
-import shutil
 from anthropic import Anthropic
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import (
-    NoSuchElementException, StaleElementReferenceException,
-    ElementClickInterceptedException,
-)
+
+# ─────────────────────────────────────────────
+# 상수 / 설정
+# ─────────────────────────────────────────────
+DATA_DIR = "data"
+META_FILE = os.path.join(DATA_DIR, "meta.json")
+
+PRODUCTS = {
+    1: {
+        "name":     "라운드랩 1025 독도 토너",
+        "brand":    "라운드랩",
+        "filename": "product_1_roundlab_toner.csv",
+        "color":    "#1a5fa8",
+        "bg":       "#e8f4fd",
+        "emoji":    "💧",
+        "desc":     "제주 독도 해양심층수 성분 · 저자극 데일리 토너",
+    },
+    2: {
+        "name":     "아누아 어성초 77 수딩 토너",
+        "brand":    "아누아",
+        "filename": "product_2_anua_toner.csv",
+        "color":    "#2d6a2d",
+        "bg":       "#f0faf0",
+        "emoji":    "🌿",
+        "desc":     "어성초 추출물 77% · 진정 & 수분 특화 토너",
+    },
+    3: {
+        "name":     "토리든 다이브인 히알루론산 세럼",
+        "brand":    "토리든",
+        "filename": "product_3_torriden_serum.csv",
+        "color":    "#3949ab",
+        "bg":       "#e8f0fe",
+        "emoji":    "✨",
+        "desc":     "저분자 히알루론산 5종 · 속건조 집중케어 세럼",
+    },
+    4: {
+        "name":     "구달 청귤 비타C 잡티케어 세럼",
+        "brand":    "구달",
+        "filename": "product_4_goodal_serum.csv",
+        "color":    "#f57f17",
+        "bg":       "#fffde7",
+        "emoji":    "🍊",
+        "desc":     "제주 청귤 비타C · 잡티 & 피부톤 개선 세럼",
+    },
+}
+
+COMPETITOR = "에스트라 아토베리어365 크림"
 
 # ─────────────────────────────────────────────
 # 페이지 설정
@@ -30,28 +76,54 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700&display=swap');
-html, body, [class*="css"] { font-family: 'Pretendard', sans-serif; }
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
+html, body, [class*="css"] { font-family: 'Noto Sans KR', sans-serif; }
+.product-hero {
+    border-radius: 16px; padding: 28px 32px; margin-bottom: 24px;
+    display: flex; align-items: center; gap: 20px;
+}
+.hero-emoji { font-size: 52px; line-height: 1; }
+.hero-info h1 { font-size: 22px; font-weight: 700; margin: 0; }
+.hero-info p  { font-size: 13px; opacity: .7; margin: 6px 0 0; }
 .step-badge {
-    display:inline-block;background:#e8f5e9;color:#2e7d32;
-    border-radius:20px;padding:4px 14px;font-size:.78rem;font-weight:600;margin-bottom:.5rem;
+    display: inline-block; background: #e8f5e9; color: #2e7d32;
+    border-radius: 20px; padding: 4px 14px; font-size: 0.78rem;
+    font-weight: 600; margin-bottom: .5rem;
 }
 .metric-card {
-    background:#fafafa;border:1px solid #e8e8e8;border-radius:12px;
-    padding:1.2rem 1.5rem;text-align:center;
+    background: #fafafa; border: 1px solid #eee; border-radius: 12px;
+    padding: 1rem 1.2rem; text-align: center;
 }
-.metric-card .value{font-size:2.2rem;font-weight:700;color:#1a1a2e;}
-.metric-card .label{font-size:.82rem;color:#888;margin-top:4px;}
+.metric-card .v { font-size: 2rem; font-weight: 700; }
+.metric-card .l { font-size: 0.78rem; color: #888; margin-top: 3px; }
+.pos-tag {
+    display: inline-block; background: #e8f5e9; color: #2e7d32;
+    border-radius: 16px; padding: 4px 12px; margin: 3px;
+    font-size: 0.82rem; font-weight: 500;
+}
+.neg-tag {
+    display: inline-block; background: #fce4ec; color: #c62828;
+    border-radius: 16px; padding: 4px 12px; margin: 3px;
+    font-size: 0.82rem; font-weight: 500;
+}
+.persona-box {
+    background: #f8f9fa; border-left: 4px solid #4CAF50;
+    border-radius: 0 10px 10px 0; padding: 12px 16px; margin: 8px 0;
+}
+.gap-box {
+    border-left: 4px solid var(--fc); background: #fafafa;
+    border-radius: 0 10px 10px 0; padding: 12px 16px; margin: 8px 0;
+}
+.back-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    color: #555; font-size: 13px; text-decoration: none;
+    margin-bottom: 16px; cursor: pointer;
+}
+.no-data-box {
+    background: #fff3e0; border: 1px solid #ffe0b2; border-radius: 12px;
+    padding: 24px; text-align: center; margin: 20px 0;
+}
 </style>
-""", unsafe_allow_html=True)
-
-st.markdown("""
-<div style="background:linear-gradient(135deg,#1a1a2e,#0f3460);padding:2rem 2.5rem;
-border-radius:16px;margin-bottom:2rem;border:1px solid rgba(255,255,255,.08)">
-<h1 style="color:#fff;margin:0;font-size:2rem;font-weight:700">🌿 OliveAI Review Intelligence</h1>
-<p style="color:rgba(255,255,255,.6);margin:.5rem 0 0;font-size:.95rem">
-URL 입력 → 실시간 리뷰 수집 → Claude AI 분석 → 인터랙티브 대시보드</p>
-</div>
 """, unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────
@@ -62,7 +134,9 @@ if "CLAUDE_API_KEY" in st.secrets:
 else:
     with st.sidebar:
         st.subheader("⚙️ 설정")
-        api_key = st.text_input("Claude API Key", type="password", placeholder="sk-ant-...")
+        api_key = st.text_input("Claude API Key", type="password",
+                                placeholder="sk-ant-...")
+        st.caption("Anthropic Console에서 발급받은 키를 입력하세요.")
 
 if not api_key:
     st.warning("👈 사이드바에서 Claude API Key를 입력해주세요.")
@@ -71,280 +145,251 @@ if not api_key:
 client = Anthropic(api_key=api_key)
 
 # ─────────────────────────────────────────────
-# STEP 1 : ChromeDriver — 클라우드/로컬 자동 감지
+# URL 파라미터로 상품 선택
 # ─────────────────────────────────────────────
-def _get_driver() -> webdriver.Chrome:
-    """
-    Streamlit Cloud (Debian) 과 로컬 환경을 모두 지원.
+params  = st.query_params
+pid_str = params.get("product", "")
+try:
+    selected_pid = int(pid_str) if pid_str and pid_str.isdigit() else None
+except Exception:
+    selected_pid = None
 
-    우선순위
-    ① 시스템 chromium + chromedriver  (packages.txt 경유, 클라우드 환경)
-    ② webdriver-manager 자동 다운로드 (로컬 개발 환경)
-    """
-    options = Options()
-    options.add_argument("--headless=new")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--disable-gpu")
-    options.add_argument("--single-process")
-    options.add_argument("--disable-blink-features=AutomationControlled")
-    options.add_argument("--disable-extensions")
-    options.add_argument("--remote-debugging-port=9222")
-    options.add_argument("--window-size=1280,900")
-    options.add_argument("--lang=ko-KR")
-    options.add_argument(
-        "user-agent=Mozilla/5.0 (X11; Linux x86_64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+# ─────────────────────────────────────────────
+# 화면 A: 메인 랭킹 페이지 (상품 선택 전)
+# ─────────────────────────────────────────────
+if selected_pid is None:
+    st.markdown("""
+    <div style="background:linear-gradient(135deg,#0d1b2a,#1a3a2e);padding:20px 28px;
+    border-radius:14px;margin-bottom:20px">
+    <h1 style="color:#fff;margin:0;font-size:1.8rem;font-weight:700">
+        🌿 OliveAI Review Intelligence
+    </h1>
+    <p style="color:rgba(255,255,255,.6);margin:.4rem 0 0;font-size:.9rem">
+        올리브영 베스트 랭킹 상품 · AI 리뷰 분석 · 인터랙티브 대시보드
+    </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # 올리브영 베스트 페이지 HTML 임베드
+    html_path = "oliveyoung_best.html"
+    if os.path.exists(html_path):
+        with open(html_path, "r", encoding="utf-8") as f:
+            html_content = f.read()
+
+        # Streamlit 내부 링크로 교체 (modal의 href 수정)
+        for pid in [1, 2, 3, 4]:
+            html_content = html_content.replace(
+                f"http://localhost:8501?product={pid}",
+                f"?product={pid}"
+            )
+        # modal의 링크를 st.query_params 방식으로 동작하도록
+        # (iframe 내에서는 실제 네비게이션이 안 되므로 JS postMessage 활용)
+        inject_js = """
+<script>
+// Streamlit iframe 내에서 상품 클릭 시 부모 페이지로 전달
+function openProduct(id) {
+  const products = {
+    1: '라운드랩 1025 독도 토너',
+    2: '아누아 어성초 77 수딩 토너',
+    3: '토리든 다이브인 히알루론산 세럼',
+    4: '구달 청귤 비타C 잡티케어 세럼',
+  };
+  window.parent.postMessage({type:'SELECT_PRODUCT', id: id, name: products[id]}, '*');
+}
+</script>
+"""
+        html_content = html_content.replace("</body>", inject_js + "</body>")
+        st.components.v1.html(html_content, height=1000, scrolling=True)
+    else:
+        st.info("oliveyoung_best.html 파일이 필요합니다.")
+
+    # JS → Streamlit 브릿지 (postMessage 수신)
+    st.markdown("""
+    <script>
+    window.addEventListener('message', function(e) {
+        if (e.data && e.data.type === 'SELECT_PRODUCT') {
+            window.location.search = '?product=' + e.data.id;
+        }
+    });
+    </script>
+    """, unsafe_allow_html=True)
+
+    # 대체 버튼 UI (iframe postMessage가 동작 안 할 경우 대비)
+    st.markdown("---")
+    st.markdown("### 상품을 선택해 AI 분석을 시작하세요")
+    cols = st.columns(4)
+    for idx, (pid, info) in enumerate(PRODUCTS.items()):
+        csv_path = os.path.join(DATA_DIR, info["filename"])
+        has_data = os.path.exists(csv_path)
+        with cols[idx]:
+            st.markdown(f"""
+            <div style="background:{info['bg']};border-radius:12px;padding:16px;
+            text-align:center;border:2px solid {'#4CAF50' if has_data else '#ddd'}">
+              <div style="font-size:2rem">{info['emoji']}</div>
+              <div style="font-size:12px;font-weight:700;color:{info['color']};margin:6px 0 2px">
+                {info['brand']}</div>
+              <div style="font-size:11px;color:#555;line-height:1.4">{info['name']}</div>
+              <div style="margin-top:8px;font-size:10px;color:{'#2e7d32' if has_data else '#999'}">
+                {'✅ 데이터 준비됨' if has_data else '⚠ 크롤링 필요'}</div>
+            </div>
+            """, unsafe_allow_html=True)
+            if st.button(f"{'AI 분석 보기 →' if has_data else '데이터 없음'}", key=f"btn_{pid}",
+                         disabled=not has_data, use_container_width=True):
+                st.query_params["product"] = str(pid)
+                st.rerun()
+
+    st.stop()
+
+# ─────────────────────────────────────────────
+# 화면 B: 개별 상품 분석 페이지
+# ─────────────────────────────────────────────
+if selected_pid not in PRODUCTS:
+    st.error("잘못된 상품 ID입니다.")
+    st.stop()
+
+product = PRODUCTS[selected_pid]
+
+# 뒤로가기 버튼
+if st.button("← 랭킹으로 돌아가기"):
+    st.query_params.clear()
+    st.rerun()
+
+# 히어로 섹션
+st.markdown(f"""
+<div class="product-hero" style="background:{product['bg']}">
+  <div class="hero-emoji">{product['emoji']}</div>
+  <div class="hero-info">
+    <div style="font-size:11px;color:{product['color']};font-weight:600;margin-bottom:4px">
+      {product['brand']} · 올리브영 랭킹 {selected_pid}위</div>
+    <h1 style="font-size:22px;font-weight:700;color:#1a1a1a;margin:0">{product['name']}</h1>
+    <p style="font-size:13px;color:#666;margin:6px 0 0">{product['desc']}</p>
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+# ── CSV 로드 ──────────────────────────────────
+csv_path = os.path.join(DATA_DIR, product["filename"])
+
+if not os.path.exists(csv_path):
+    st.markdown(f"""
+    <div class="no-data-box">
+      <div style="font-size:2rem">📂</div>
+      <div style="font-size:16px;font-weight:700;margin:8px 0">리뷰 데이터가 없습니다</div>
+      <div style="font-size:13px;color:#666">
+        먼저 <code>python 2_crawl_reviews.py</code> 를 실행해서<br>
+        <code>{csv_path}</code> 파일을 생성해주세요.
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+    st.stop()
+
+df = pd.read_csv(csv_path)
+
+if df.empty:
+    st.error("CSV 파일에 데이터가 없습니다.")
+    st.stop()
+
+# 기본 통계
+avg_r      = round(df["rating"].mean(), 2) if "rating" in df.columns else 0
+total_rev  = len(df)
+skin_dist  = (
+    df["skin_type"].dropna()
+    .str.split(", ").explode()
+    .value_counts().head(8).to_dict()
+) if "skin_type" in df.columns else {}
+
+st.markdown(f'<span class="step-badge">STEP 1</span> **수집 데이터**', unsafe_allow_html=True)
+c1, c2, c3, c4 = st.columns(4)
+for col, val, label in [
+    (c1, f"⭐ {avg_r}", "평균 별점"),
+    (c2, f"{total_rev:,}개", "수집 리뷰"),
+    (c3, f"{int(df['rating'].ge(4).sum() / total_rev * 100) if total_rev else 0}%", "4점 이상 비율"),
+    (c4, f"{len(skin_dist)}개", "피부 태그 종류"),
+]:
+    col.markdown(
+        f'<div class="metric-card"><div class="v">{val}</div>'
+        f'<div class="l">{label}</div></div>',
+        unsafe_allow_html=True
     )
-    options.add_experimental_option("excludeSwitches", ["enable-automation"])
-    options.add_experimental_option("useAutomationExtension", False)
 
-    # ① 시스템 설치 경로 탐색 (Streamlit Cloud / Debian / Ubuntu)
-    CHROME_BINS = [
-        "/usr/bin/chromium",
-        "/usr/bin/chromium-browser",
-        "/usr/bin/google-chrome-stable",
-        "/usr/bin/google-chrome",
-    ]
-    DRIVER_BINS = [
-        "/usr/bin/chromedriver",
-        "/usr/lib/chromium/chromedriver",
-        "/usr/lib/chromium-browser/chromedriver",
-        "/snap/bin/chromium.chromedriver",
-    ]
+with st.expander("📋 원본 데이터 미리보기"):
+    st.dataframe(df.head(15), use_container_width=True)
+    st.download_button("📥 CSV 다운로드", df.to_csv(index=False, encoding="utf-8-sig").encode(),
+                       product["filename"], "text/csv")
 
-    chrome_bin = next(
-        (p for p in CHROME_BINS if os.path.exists(p) or shutil.which(p)), None
-    )
-    driver_bin = next(
-        (p for p in DRIVER_BINS if os.path.exists(p) or shutil.which(p)), None
-    )
+st.divider()
 
-    if chrome_bin and driver_bin:
-        options.binary_location = chrome_bin
-        return webdriver.Chrome(service=Service(driver_bin), options=options)
-
-    # ② webdriver-manager (로컬 개발)
-    try:
-        from webdriver_manager.chrome import ChromeDriverManager
-        return webdriver.Chrome(
-            service=Service(ChromeDriverManager().install()), options=options
-        )
-    except Exception as e:
-        raise RuntimeError(
-            "ChromeDriver 시작 실패.\n"
-            "Streamlit Cloud: 레포 루트에 packages.txt 파일이 있고 "
-            "'chromium'과 'chromium-driver'가 포함되어 있는지 확인하세요.\n"
-            f"원본 오류: {e}"
-        ) from e
-
-
-# ─────────────────────────────────────────────
-# 셀렉터 상수
-# ─────────────────────────────────────────────
-CARD_SELECTORS = [
-    ".review_list li", ".review_wrap li", ".prd_review_list li",
-    "#reviewArea li", ".review_item", "[class*='review'] li",
-]
-MORE_BTN_SELECTORS = [
-    "button.more_btn", "a.more_btn", ".review_more button",
-    ".btn_more", ".more_area button",
-]
-
-
-def _parse_card(card) -> dict | None:
-    def _try(sels):
-        for s in sels:
-            try:
-                t = card.find_element(By.CSS_SELECTOR, s).text.strip()
-                if t:
-                    return t
-            except NoSuchElementException:
-                pass
-        return ""
-
-    text = _try([".review_cont", ".txt_review", ".review_text", "p.review", ".prd_review_cont"])
-    if not text:
-        raw = card.text.strip()
-        text = raw if len(raw) > 30 else ""
-    if not text:
-        return None
-
-    rating_raw = _try([".point", ".grade_point", ".star_score"])
-    try:
-        rating = float(re.sub(r"[^0-9.]", "", rating_raw)[:3])
-    except Exception:
-        rating = 0.0
-
-    tags = []
-    for s in [".tag_list .tag", ".review_tag li", ".skin_tag span", "[class*='tag'] li"]:
-        try:
-            for el in card.find_elements(By.CSS_SELECTOR, s):
-                t = el.text.strip()
-                if t and t not in tags:
-                    tags.append(t)
-        except Exception:
-            pass
-
-    return {
-        "text":      text,
-        "rating":    rating,
-        "skin_type": ", ".join(tags),
-        "date":      _try([".date", ".review_date", "time"]),
-        "author":    _try([".name", ".reviewer_id", ".user_id"]),
-    }
-
-
-@st.cache_data(ttl=3600, show_spinner=False)
-def crawl_reviews(url: str, target: int = 100) -> pd.DataFrame:
-    driver = _get_driver()
-    wait   = WebDriverWait(driver, 10)
-    rows: list[dict] = []
-
-    try:
-        driver.get(url)
-        time.sleep(3)
-
-        for sel in [".ly_close", ".close_btn", ".popup_close"]:
-            try:
-                btn = driver.find_element(By.CSS_SELECTOR, sel)
-                if btn.is_displayed():
-                    btn.click(); time.sleep(0.4)
-            except Exception:
-                pass
-
-        for sel in ["#review_link", "a[href*='review']", ".tab_review"]:
-            try:
-                driver.find_element(By.CSS_SELECTOR, sel).click()
-                time.sleep(2); break
-            except Exception:
-                pass
-
-        seen:  set[str] = set()
-        clicks = 0
-        no_new = 0
-
-        while len(rows) < target and clicks < 50:
-            for sel in CARD_SELECTORS:
-                cards = driver.find_elements(By.CSS_SELECTOR, sel)
-                if not cards:
-                    continue
-                for card in cards:
-                    try:
-                        d = _parse_card(card)
-                        if d and d["text"] not in seen:
-                            seen.add(d["text"])
-                            rows.append(d)
-                    except StaleElementReferenceException:
-                        pass
-                if rows:
-                    break
-
-            if len(rows) >= target:
-                break
-
-            prev    = len(rows)
-            clicked = False
-            for sel in MORE_BTN_SELECTORS:
-                try:
-                    btn = wait.until(
-                        EC.presence_of_element_located((By.CSS_SELECTOR, sel))
-                    )
-                    if btn.is_displayed() and btn.is_enabled():
-                        driver.execute_script(
-                            "arguments[0].scrollIntoView({block:'center'});", btn
-                        )
-                        time.sleep(0.4)
-                        try:
-                            btn.click()
-                        except ElementClickInterceptedException:
-                            driver.execute_script("arguments[0].click();", btn)
-                        clicked = True
-                        clicks += 1
-                        time.sleep(2)
-                        break
-                except Exception:
-                    pass
-
-            if not clicked:
-                break
-            if len(rows) == prev:
-                no_new += 1
-                if no_new >= 3:
-                    break
-            else:
-                no_new = 0
-
-    finally:
-        driver.quit()
-
-    return pd.DataFrame(rows) if rows else pd.DataFrame()
-
-
-# ─────────────────────────────────────────────
-# STEP 2 : Claude 분석
-# ─────────────────────────────────────────────
-COMPETITOR = "구달 청귤 비타C 패드"
-
+# ── Claude 분석 ───────────────────────────────
+st.markdown(f'<span class="step-badge">STEP 2</span> **Claude AI 분석**', unsafe_allow_html=True)
 
 @st.cache_data(ttl=86400, show_spinner=False)
-def analyze_with_claude(_df: pd.DataFrame) -> dict:
-    sample    = _df["text"].head(80).tolist()
-    skin_tags = (
-        _df["skin_type"].dropna()
+def analyze(_df_key: str, _df_hash: int) -> dict:
+    """CSV 내용 해시 기반 캐싱 — 동일 파일은 재분석 안 함"""
+    df_work = pd.read_csv(os.path.join(DATA_DIR, _df_key))
+    sample  = df_work["text"].dropna().head(80).tolist()
+    avg     = round(df_work["rating"].mean(), 2) if "rating" in df_work.columns else 0
+    tags    = (
+        df_work["skin_type"].dropna()
         .str.split(", ").explode()
         .value_counts().head(10).to_dict()
-    )
-    avg_r = round(_df["rating"].mean(), 2) if "rating" in _df.columns else 0
+    ) if "skin_type" in df_work.columns else {}
 
     prompt = f"""당신은 올리브영 시니어 PM 겸 데이터 애널리스트입니다.
 아래 고객 리뷰 {len(sample)}개를 분석하여 전략 리포트를 JSON으로만 작성하세요.
 다른 텍스트 없이 순수 JSON만 출력하세요.
 
-[기본 통계] 평균 별점: {avg_r} / 피부 태그: {json.dumps(skin_tags, ensure_ascii=False)}
-[리뷰]: {chr(10).join(f'{i+1}. {t}' for i, t in enumerate(sample))}
+[기본 통계] 평균 별점: {avg} / 피부 태그 분포: {json.dumps(tags, ensure_ascii=False)}
+[리뷰 샘플]:
+{chr(10).join(f'{i+1}. {t}' for i, t in enumerate(sample))}
 
 {{
-  "summary": "한 문장 핵심 요약",
-  "ai_score": {{"sensitive_skin":85,"oily_skin":70,"dry_skin":78,"overall":82}},
-  "sentiment": {{
-    "positive_keywords":["키워드1","키워드2","키워드3","키워드4","키워드5","키워드6","키워드7","키워드8"],
-    "negative_keywords":["키워드1","키워드2","키워드3","키워드4"],
-    "positive_ratio":78
+  "summary": "전체 리뷰를 관통하는 핵심 한 줄 요약",
+  "ai_score": {{
+    "sensitive_skin": 85,
+    "oily_skin": 70,
+    "dry_skin": 78,
+    "combo_skin": 75,
+    "overall": 80
   }},
-  "persona_analysis":[
-    {{"persona":"잡티/미백 고민","satisfaction":88,"key_review":"대표 리뷰","count_ratio":35}},
-    {{"persona":"탄력/주름 고민","satisfaction":72,"key_review":"대표 리뷰","count_ratio":28}},
-    {{"persona":"민감/진정 고민","satisfaction":81,"key_review":"대표 리뷰","count_ratio":25}},
-    {{"persona":"보습/건조 고민","satisfaction":76,"key_review":"대표 리뷰","count_ratio":12}}
+  "sentiment": {{
+    "positive_keywords": ["키워드1","키워드2","키워드3","키워드4","키워드5","키워드6","키워드7","키워드8"],
+    "negative_keywords": ["키워드1","키워드2","키워드3","키워드4"],
+    "positive_ratio": 78
+  }},
+  "persona_analysis": [
+    {{"persona":"잡티/미백 고민","satisfaction":88,"key_review":"대표 리뷰 한 줄","count_ratio":35}},
+    {{"persona":"탄력/주름 고민","satisfaction":72,"key_review":"대표 리뷰 한 줄","count_ratio":28}},
+    {{"persona":"민감/진정 고민","satisfaction":81,"key_review":"대표 리뷰 한 줄","count_ratio":25}},
+    {{"persona":"보습/건조 고민","satisfaction":76,"key_review":"대표 리뷰 한 줄","count_ratio":12}}
   ],
-  "top_ingredients":[
+  "top_ingredients": [
     {{"name":"성분명","mention_count":30,"sentiment":"positive"}},
     {{"name":"성분명","mention_count":22,"sentiment":"positive"}},
     {{"name":"성분명","mention_count":18,"sentiment":"positive"}},
     {{"name":"성분명","mention_count":14,"sentiment":"neutral"}},
-    {{"name":"성분명","mention_count":10,"sentiment":"negative"}}
+    {{"name":"성분명","mention_count":10,"sentiment":"negative"}},
+    {{"name":"성분명","mention_count":8,"sentiment":"positive"}}
   ],
-  "unmet_needs":[
+  "unmet_needs": [
     {{"need":"미충족 니즈 1","frequency":"높음","opportunity":"기회 설명"}},
     {{"need":"미충족 니즈 2","frequency":"중간","opportunity":"기회 설명"}},
     {{"need":"미충족 니즈 3","frequency":"중간","opportunity":"기회 설명"}}
   ],
-  "competitor_simulation":{{
-    "competitor_name":"{COMPETITOR}",
-    "comparison":[
-      {{"dimension":"보습력","this_product":82,"competitor":75}},
-      {{"dimension":"흡수력","this_product":88,"competitor":80}},
-      {{"dimension":"자극없음","this_product":85,"competitor":72}},
-      {{"dimension":"가성비","this_product":70,"competitor":88}},
-      {{"dimension":"성분","this_product":78,"competitor":82}},
-      {{"dimension":"향/사용감","this_product":80,"competitor":76}}
+  "competitor_simulation": {{
+    "competitor_name": "{COMPETITOR}",
+    "comparison": [
+      {{"dimension":"보습력","this_product":80,"competitor":75}},
+      {{"dimension":"흡수력","this_product":85,"competitor":78}},
+      {{"dimension":"자극없음","this_product":82,"competitor":70}},
+      {{"dimension":"가성비","this_product":68,"competitor":85}},
+      {{"dimension":"성분력","this_product":88,"competitor":80}},
+      {{"dimension":"향/사용감","this_product":78,"competitor":74}}
     ]
   }},
-  "winning_points":[
+  "winning_points": [
     {{"factor":"강점 1","score":90,"reason":"설명"}},
-    {{"factor":"강점 2","score":83,"reason":"설명"}},
-    {{"factor":"강점 3","score":77,"reason":"설명"}}
+    {{"factor":"강점 2","score":84,"reason":"설명"}},
+    {{"factor":"강점 3","score":78,"reason":"설명"}}
   ]
 }}"""
 
@@ -359,215 +404,264 @@ def analyze_with_claude(_df: pd.DataFrame) -> dict:
     return json.loads(match.group() if match else raw)
 
 
-# ─────────────────────────────────────────────
-# STEP 3 : Claude Artifacts HTML 대시보드
-# ─────────────────────────────────────────────
-def generate_dashboard_html(df: pd.DataFrame, insight: dict, product_name: str) -> str:
-    avg_r = round(df["rating"].mean(), 2) if "rating" in df.columns else 0
-    prompt = f"""당신은 시니어 프론트엔드 개발자입니다.
-올리브영 AI 리뷰 분석 데이터를 바탕으로 완전한 인터랙티브 HTML 대시보드를 생성하세요.
+# 파일 변경 감지용 해시
+df_hash = hash(df.to_csv(index=False)[:2000])
 
-[데이터] 상품: {product_name} / 리뷰: {len(df)}개 / 별점: {avg_r}
-[AI 분석]: {json.dumps(insight, ensure_ascii=False, indent=2)}
-
-[구현 요소]
-1. Word Cloud (Canvas, 빈도 기반 폰트 크기)
-2. AI Score 프로그레스바 (피부 타입별 추천 지수)
-3. Sentiment 태그 클라우드 (긍정=초록, 부정=빨강)
-4. Persona 만족도 바 차트 (Chart.js)
-5. Product Gap 카드
-6. Competitor 비교 바 차트 ({insight.get('competitor_simulation',{}).get('competitor_name','경쟁사')})
-7. 올리브영 브랜드 컬러 #4CAF50/#2e7d32, 반응형
-
-[요건] 단일 HTML / CDN만(Chart.js) / 실제 데이터 하드코딩 / 카운터 애니메이션
-
-완전한 HTML만 출력하세요. 설명 없이."""
-
-    msg = client.messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=6000,
-        temperature=0.3,
-        messages=[{"role": "user", "content": prompt}]
-    )
-    raw = msg.content[0].text
-    for pat in [r"<!DOCTYPE html>.*?</html>", r"<html.*?</html>"]:
-        m = re.search(pat, raw, re.DOTALL | re.IGNORECASE)
-        if m:
-            return m.group()
-    return raw
-
-
-# ─────────────────────────────────────────────
-# 메인 UI
-# ─────────────────────────────────────────────
-c_url, c_btn = st.columns([5, 1])
-with c_url:
-    input_url = st.text_input(
-        "올리브영 URL",
-        placeholder="https://www.oliveyoung.co.kr/store/goods/getGoodsDetail.do?goodsNo=...",
-        label_visibility="collapsed",
-    )
-with c_btn:
-    run_btn = st.button("🔍 분석 시작", use_container_width=True, type="primary")
-
-if run_btn:
-    if not input_url.strip():
-        st.warning("URL을 입력해주세요.")
+with st.spinner("🧠 Claude가 리뷰를 분석 중입니다..."):
+    try:
+        insight = analyze(product["filename"], df_hash)
+    except Exception as e:
+        st.error(f"AI 분석 오류: {e}")
         st.stop()
 
-    # ── STEP 1 ────────────────────────────────
-    st.markdown('<span class="step-badge">STEP 1</span> **실시간 리뷰 수집**',
-                unsafe_allow_html=True)
-    with st.spinner("🔄 Selenium으로 리뷰 수집 중... (20~40초)"):
-        df = crawl_reviews(input_url, target=100)
+st.success(f"✅ 분석 완료! — *{insight.get('summary', '')}*")
 
-    if df.empty:
-        st.error("❌ 리뷰 수집 실패. URL을 확인하거나 잠시 후 다시 시도해주세요.")
-        st.stop()
+# 분석 결과 메트릭
+pos_r = insight.get("sentiment", {}).get("positive_ratio", 0)
+ai_s  = insight.get("ai_score",  {}).get("overall", 0)
+unmet = len(insight.get("unmet_needs", []))
 
-    st.success(f"✅ **{len(df)}개** 리뷰 수집 완료!")
-    st.download_button(
-        "📥 reviews.csv 다운로드",
-        df.to_csv(index=False, encoding="utf-8-sig").encode("utf-8-sig"),
-        "reviews.csv", "text/csv",
-    )
-    with st.expander("📋 수집 데이터 미리보기"):
-        st.dataframe(df.head(10), use_container_width=True)
-
-    st.divider()
-
-    # ── STEP 2 ────────────────────────────────
-    st.markdown('<span class="step-badge">STEP 2</span> **Claude AI 분석**',
-                unsafe_allow_html=True)
-    with st.spinner("🧠 Claude 분석 중..."):
-        try:
-            insight = analyze_with_claude(df)
-        except Exception as e:
-            st.error(f"AI 분석 오류: {e}")
-            st.stop()
-
-    st.success("✅ AI 분석 완료!")
-    st.markdown(f"> 💡 **핵심 요약:** {insight.get('summary','')}")
-
-    avg_r2 = round(df["rating"].mean(), 2) if "rating" in df.columns else 0
-    pos_r  = insight.get("sentiment", {}).get("positive_ratio", 0)
-    ai_s   = insight.get("ai_score",  {}).get("overall", 0)
-    unmet  = len(insight.get("unmet_needs", []))
-
-    for col, val, label in zip(
-        st.columns(4),
-        [f"⭐ {avg_r2}", f"{pos_r}%", f"{ai_s}점", f"{unmet}건"],
-        ["평균 별점", "긍정 리뷰 비율", "AI 종합 지수", "미충족 니즈"],
-    ):
-        col.markdown(
-            f'<div class="metric-card"><div class="value">{val}</div>'
-            f'<div class="label">{label}</div></div>',
-            unsafe_allow_html=True,
-        )
-
-    st.divider()
-    tab1, tab2, tab3, tab4 = st.tabs(
-        ["😊 감성 분석", "👤 페르소나", "🚀 제품 갭", "🏆 경쟁사 비교"]
+m1, m2, m3, m4 = st.columns(4)
+for col, val, label in [
+    (m1, f"⭐ {avg_r}", "평균 별점"),
+    (m2, f"{pos_r}%",   "긍정 리뷰 비율"),
+    (m3, f"{ai_s}점",   "AI 종합 지수"),
+    (m4, f"{unmet}건",  "미충족 니즈"),
+]:
+    col.markdown(
+        f'<div class="metric-card"><div class="v" style="color:{product["color"]}">{val}</div>'
+        f'<div class="l">{label}</div></div>',
+        unsafe_allow_html=True,
     )
 
-    with tab1:
-        s   = insight.get("sentiment", {})
-        c1, c2 = st.columns(2)
-        with c1:
-            st.subheader("✅ 긍정")
-            for kw in s.get("positive_keywords", []):
-                st.markdown(
-                    f'<span style="background:#e8f5e9;color:#2e7d32;padding:4px 12px;'
-                    f'border-radius:20px;margin:3px;display:inline-block">{kw}</span>',
-                    unsafe_allow_html=True,
-                )
-        with c2:
-            st.subheader("⚠️ 부정")
-            for kw in s.get("negative_keywords", []):
-                st.markdown(
-                    f'<span style="background:#fce4ec;color:#c62828;padding:4px 12px;'
-                    f'border-radius:20px;margin:3px;display:inline-block">{kw}</span>',
-                    unsafe_allow_html=True,
-                )
-        pr = s.get("positive_ratio", 0)
+st.divider()
+
+# ── 분석 탭 ──────────────────────────────────
+st.markdown(f'<span class="step-badge">STEP 3</span> **시각화 대시보드**', unsafe_allow_html=True)
+
+tab1, tab2, tab3, tab4, tab5 = st.tabs(
+    ["😊 감성 분석", "👤 페르소나", "🚀 미충족 니즈", "🏆 경쟁사 비교", "📊 상세 통계"]
+)
+
+# ── TAB 1: 감성 분석 ──────────────────────────
+with tab1:
+    s = insight.get("sentiment", {})
+    col_a, col_b = st.columns([1, 1])
+
+    with col_a:
+        st.subheader("✅ 긍정 키워드")
+        for kw in s.get("positive_keywords", []):
+            st.markdown(f'<span class="pos-tag">{kw}</span>', unsafe_allow_html=True)
+
+        st.subheader("⚠️ 부정 키워드")
+        for kw in s.get("negative_keywords", []):
+            st.markdown(f'<span class="neg-tag">{kw}</span>', unsafe_allow_html=True)
+
+    with col_b:
+        pr  = s.get("positive_ratio", 0)
         fig = go.Figure(data=[go.Pie(
-            labels=["긍정", "부정"], values=[pr, 100-pr], hole=0.65,
-            marker_colors=["#4CAF50", "#ef5350"],
+            labels=["긍정", "중립", "부정"],
+            values=[pr, max(100 - pr - 12, 0), 12],
+            hole=0.65,
+            marker_colors=[product["color"], "#e0e0e0", "#ef5350"],
         )])
         fig.update_layout(
-            showlegend=True, height=300,
-            annotations=[dict(text=f"{pr}%", x=0.5, y=0.5, font_size=22, showarrow=False)],
+            showlegend=True, height=280, margin=dict(t=10, b=10),
+            annotations=[dict(text=f"{pr}%<br><span style='font-size:12px'>긍정</span>",
+                              x=0.5, y=0.5, font_size=20, showarrow=False)]
         )
         st.plotly_chart(fig, use_container_width=True)
 
-    with tab2:
-        personas = insight.get("persona_analysis", [])
-        if personas:
-            df_p = pd.DataFrame(personas)
-            fig  = px.bar(
-                df_p, x="persona", y="satisfaction",
-                color="satisfaction", color_continuous_scale="Greens",
-                text="satisfaction", title="피부 고민별 만족도",
-            )
-            fig.update_traces(texttemplate="%{text}점", textposition="outside")
-            fig.update_layout(coloraxis_showscale=False, height=380)
-            st.plotly_chart(fig, use_container_width=True)
-            for p in personas:
-                st.markdown(
-                    f'<div style="background:#f5f5ff;border:1px solid #ddd;border-radius:12px;'
-                    f'padding:1rem 1.4rem;margin:.5rem 0">'
-                    f'<strong>{p["persona"]}</strong> (만족도 {p["satisfaction"]}점 · {p["count_ratio"]}%)'
-                    f'<br><span style="color:#555;font-size:.9rem">"{p["key_review"]}"</span></div>',
-                    unsafe_allow_html=True,
-                )
+    # 피부 타입 분포
+    if skin_dist:
+        st.subheader("🏷️ 피부 타입 태그 분포")
+        df_skin = pd.DataFrame(list(skin_dist.items()), columns=["태그", "건수"])
+        fig2 = px.bar(df_skin, x="건수", y="태그", orientation="h",
+                      color="건수", color_continuous_scale="Greens")
+        fig2.update_layout(height=300, margin=dict(t=10, b=10),
+                           coloraxis_showscale=False,
+                           yaxis=dict(categoryorder="total ascending"))
+        st.plotly_chart(fig2, use_container_width=True)
 
-    with tab3:
-        for item in insight.get("unmet_needs", []):
-            fc = {"높음": "#ef5350", "중간": "#FF9800", "낮음": "#4CAF50"}.get(
-                item.get("frequency", ""), "#999"
-            )
-            st.markdown(
-                f'<div style="border-left:4px solid {fc};padding:.8rem 1.2rem;'
-                f'margin:.6rem 0;background:#fafafa;border-radius:0 8px 8px 0">'
-                f'<strong>{item["need"]}</strong> '
-                f'<span style="background:{fc};color:#fff;padding:2px 8px;'
-                f'border-radius:10px;font-size:.75rem">{item.get("frequency","")}</span>'
-                f'<br><span style="color:#666;font-size:.88rem">💡 {item["opportunity"]}</span></div>',
-                unsafe_allow_html=True,
-            )
+# ── TAB 2: 페르소나 매핑 ───────────────────────
+with tab2:
+    personas = insight.get("persona_analysis", [])
+    if personas:
+        df_p = pd.DataFrame(personas)
+        fig  = px.bar(
+            df_p, x="persona", y="satisfaction",
+            color="satisfaction",
+            color_continuous_scale=["#ffcdd2", product["color"]],
+            text="satisfaction",
+            title="피부 고민별 만족도 비교",
+        )
+        fig.update_traces(texttemplate="%{text}점", textposition="outside")
+        fig.update_layout(coloraxis_showscale=False, height=360,
+                          margin=dict(t=40, b=10))
+        st.plotly_chart(fig, use_container_width=True)
 
-    with tab4:
-        comp = insight.get("competitor_simulation", {})
-        cl   = comp.get("comparison", [])
-        if cl:
-            df_c = pd.DataFrame(cl)
-            fig  = go.Figure([
-                go.Bar(name="분석 상품", x=df_c["dimension"],
-                       y=df_c["this_product"], marker_color="#4CAF50"),
-                go.Bar(name=comp.get("competitor_name", COMPETITOR),
-                       x=df_c["dimension"], y=df_c["competitor"], marker_color="#90A4AE"),
+        for p in personas:
+            st.markdown(f"""
+            <div class="persona-box" style="border-left-color:{product['color']}">
+              <strong>{p['persona']}</strong>
+              <span style="float:right;color:{product['color']};font-weight:700">
+                {p['satisfaction']}점 · {p['count_ratio']}%</span><br>
+              <span style="font-size:12px;color:#555;font-style:italic">
+                "{p['key_review']}"</span>
+            </div>
+            """, unsafe_allow_html=True)
+
+# ── TAB 3: 미충족 니즈 ────────────────────────
+with tab3:
+    for item in insight.get("unmet_needs", []):
+        fc = {"높음": "#ef5350", "중간": "#FF9800", "낮음": "#4CAF50"}.get(
+            item.get("frequency", ""), "#999"
+        )
+        st.markdown(f"""
+        <div style="border-left:4px solid {fc};padding:12px 16px;
+        margin:8px 0;background:#fafafa;border-radius:0 10px 10px 0">
+          <strong>{item['need']}</strong>
+          <span style="background:{fc};color:#fff;padding:2px 8px;
+          border-radius:10px;font-size:.72rem;margin-left:8px">
+          {item.get('frequency','')}</span>
+          <br>
+          <span style="color:#666;font-size:.85rem;margin-top:4px;display:block">
+          💡 {item['opportunity']}</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # 성분 언급 빈도
+    ingredients = insight.get("top_ingredients", [])
+    if ingredients:
+        st.subheader("🧪 주요 성분 언급 빈도")
+        df_ing = pd.DataFrame(ingredients)
+        color_map = {"positive": product["color"], "neutral": "#90A4AE", "negative": "#ef5350"}
+        df_ing["color"] = df_ing["sentiment"].map(color_map)
+        fig = go.Figure(go.Bar(
+            x=df_ing["mention_count"],
+            y=df_ing["name"],
+            orientation="h",
+            marker_color=df_ing["color"].tolist(),
+        ))
+        fig.update_layout(height=280, margin=dict(t=10, b=10),
+                          yaxis=dict(categoryorder="total ascending"))
+        st.plotly_chart(fig, use_container_width=True)
+
+# ── TAB 4: 경쟁사 비교 ────────────────────────
+with tab4:
+    comp = insight.get("competitor_simulation", {})
+    cl   = comp.get("comparison", [])
+    if cl:
+        df_c      = pd.DataFrame(cl)
+        comp_name = comp.get("competitor_name", COMPETITOR)
+
+        col_l, col_r = st.columns(2)
+
+        with col_l:
+            # 레이더
+            fig_r = go.Figure()
+            fig_r.add_trace(go.Scatterpolar(
+                r=df_c["this_product"].tolist() + [df_c["this_product"].iloc[0]],
+                theta=df_c["dimension"].tolist() + [df_c["dimension"].iloc[0]],
+                fill="toself",
+                name=product["name"],
+                line_color=product["color"],
+                fillcolor=product["color"] + "30",
+            ))
+            fig_r.add_trace(go.Scatterpolar(
+                r=df_c["competitor"].tolist() + [df_c["competitor"].iloc[0]],
+                theta=df_c["dimension"].tolist() + [df_c["dimension"].iloc[0]],
+                fill="toself",
+                name=comp_name,
+                line_color="#90A4AE",
+                fillcolor="#90A4AE30",
+            ))
+            fig_r.update_layout(
+                polar=dict(radialaxis=dict(range=[50, 100])),
+                showlegend=True, height=340,
+                margin=dict(t=20, b=20),
+                legend=dict(font=dict(size=11)),
+            )
+            st.plotly_chart(fig_r, use_container_width=True)
+
+        with col_r:
+            # 바 차트
+            fig_b = go.Figure([
+                go.Bar(name=product["name"], x=df_c["dimension"],
+                       y=df_c["this_product"], marker_color=product["color"],
+                       marker_line_width=0),
+                go.Bar(name=comp_name, x=df_c["dimension"],
+                       y=df_c["competitor"], marker_color="#B0BEC5",
+                       marker_line_width=0),
             ])
-            fig.update_layout(barmode="group", height=380, yaxis=dict(range=[0, 100]))
+            fig_b.update_layout(
+                barmode="group", height=340,
+                yaxis=dict(range=[50, 100]),
+                margin=dict(t=20, b=20),
+                legend=dict(font=dict(size=11)),
+            )
+            st.plotly_chart(fig_b, use_container_width=True)
+
+        # 우위 요약
+        wins  = df_c[df_c["this_product"] > df_c["competitor"]]
+        loses = df_c[df_c["this_product"] <= df_c["competitor"]]
+        st.markdown(f"""
+        **{product['name']}** 우위 항목: {', '.join(wins['dimension'].tolist()) or '없음'} &nbsp;|&nbsp;
+        **{comp_name}** 우위 항목: {', '.join(loses['dimension'].tolist()) or '없음'}
+        """)
+
+# ── TAB 5: 상세 통계 ──────────────────────────
+with tab5:
+    col_x, col_y = st.columns(2)
+
+    with col_x:
+        # 별점 분포
+        rating_dist = df["rating"].value_counts().sort_index(ascending=False)
+        fig = go.Figure(go.Bar(
+            x=rating_dist.values,
+            y=[f"{int(r) if r == int(r) else r}점" for r in rating_dist.index],
+            orientation="h",
+            marker_color=product["color"],
+        ))
+        fig.update_layout(title="별점 분포", height=240, margin=dict(t=40, b=10))
+        st.plotly_chart(fig, use_container_width=True)
+
+    with col_y:
+        # Winning Points
+        wp = insight.get("winning_points", [])
+        if wp:
+            df_w = pd.DataFrame(wp)
+            fig  = px.bar(df_w, x="factor", y="score", text="score",
+                          color="score",
+                          color_continuous_scale=["#c8e6c9", product["color"]],
+                          title="핵심 강점 지수")
+            fig.update_traces(texttemplate="%{text}점", textposition="outside")
+            fig.update_layout(coloraxis_showscale=False, height=240,
+                              margin=dict(t=40, b=10),
+                              yaxis=dict(range=[60, 100]))
             st.plotly_chart(fig, use_container_width=True)
 
-    st.divider()
-
-    # ── STEP 3 ────────────────────────────────
-    st.markdown('<span class="step-badge">STEP 3</span> **AI 리뷰 요약 위젯 (Claude Artifacts)**',
-                unsafe_allow_html=True)
-    product_guess = input_url.split("goodsNo=")[-1] if "goodsNo=" in input_url else "올리브영 상품"
-    with st.spinner("🎨 Claude가 대시보드 HTML 생성 중... (20~30초)"):
-        try:
-            html_code = generate_dashboard_html(df, insight, product_guess)
-        except Exception as e:
-            st.error(f"대시보드 생성 오류: {e}")
-            st.stop()
-
-    st.success("✅ AI 리뷰 요약 위젯 생성 완료!")
-    st.components.v1.html(html_code, height=900, scrolling=True)
-    st.download_button(
-        "💾 대시보드 HTML 다운로드",
-        html_code.encode("utf-8"),
-        "olive_ai_dashboard.html",
-        "text/html",
-    )
+    # AI Score 상세
+    ai_score = insight.get("ai_score", {})
+    if ai_score:
+        st.subheader("🎯 AI Score — 피부 타입별 추천 지수")
+        score_labels = {
+            "sensitive_skin": "민감성 피부",
+            "dry_skin":       "건성 피부",
+            "combo_skin":     "복합성 피부",
+            "oily_skin":      "지성 피부",
+            "overall":        "종합 지수",
+        }
+        for key, label in score_labels.items():
+            val = ai_score.get(key, 0)
+            col_l2, col_r2 = st.columns([3, 1])
+            with col_l2:
+                st.markdown(
+                    f'<div style="height:8px;background:#eee;border-radius:4px;overflow:hidden">'
+                    f'<div style="height:100%;width:{val}%;background:{product["color"]};'
+                    f'border-radius:4px;transition:width 1s"></div></div>',
+                    unsafe_allow_html=True
+                )
+            with col_r2:
+                st.markdown(f'<span style="font-weight:700;color:{product["color"]}">'
+                            f'{label}: {val}점</span>', unsafe_allow_html=True)
