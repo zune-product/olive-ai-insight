@@ -35,8 +35,12 @@ def crawl_olive_young_reviews(url):
     options.add_argument("--disable-dev-shm-usage")
     
     # webdriver-manager를 써서 드라이버 자동 설치 (배포 환경 호환성)
-    driver = webdriver.Chrome(ChromeDriverManager().install(), options=options)
+    # 수정 전: driver = webdriver.Chrome(ChromeDriverManager().install(), options=options)
     
+    # 수정 후: 아래 2줄로 교체
+    service = Service(ChromeDriverManager().install())
+    driver = webdriver.Chrome(service=service, options=options)
+
     try:
         driver.get(url)
         time.sleep(5) # 페이지 로딩 대기
