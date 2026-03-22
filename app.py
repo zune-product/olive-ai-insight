@@ -15,11 +15,12 @@ st.set_page_config(page_title="올리브영 AI 리뷰 인텔리전스 v2.0", lay
 st.title("🌿 Olive Young Review AI Insight (Real-time)")
 
 # --- 1. API 키 설정 (Secrets 활용) ---
+# Secrets에서 키를 가져오고, 없으면 사이드바에서 입력받음
 if "CLAUDE_API_KEY" in st.secrets:
     api_key = st.secrets["CLAUDE_API_KEY"]
 else:
-    st.error("Streamlit Secrets에 'CLAUDE_API_KEY'를 설정해주세요.")
-    st.stop()
+    with st.sidebar:
+        api_key = st.text_input("Claude API Key를 입력하세요", type="password")
 
 client = Anthropic(api_key=api_key)
 
