@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OliveAI Review Intelligence Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Space+Grotesk:wght@400;500;700&display=swap');
+
+:root {
+  --green-900: #1B4332;
+  --green-800: #1E5631;
+  --green-700: #2D6A4F;
+  --green-600: #40916C;
+  --green-500: #52B788;
+  --green-400: #74C69D;
+  --green-300: #95D5B2;
+  --green-100: #D8F3DC;
+  --green-50:  #F0FBF4;
+  --amber:     #F4A261;
+  --red:       #E76F51;
+  --blue:      #457B9D;
+  --gray-900:  #1D1D1B;
+  --gray-700:  #3D3D3A;
+  --gray-500:  #6B6B68;
+  --gray-300:  #BDBDB8;
+  --gray-100:  #F2F2EF;
+  --bg:        #FAFAF8;
+  --card:      #FFFFFF;
+  --border:    rgba(0,0,0,0.07);
+  --shadow:    0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04);
+  --radius:    14px;
+  --radius-sm: 8px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Noto Sans KR', sans-serif;
+  background: var(--bg);
+  color: var(--gray-900);
+  min-height: 100vh;
+  padding: 24px;
+}
+
+/* ── HEADER ── */
+.header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 28px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+.header-left h1 {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--green-800);
+  letter-spacing: -0.5px;
+}
+.header-left p { font-size: 13px; color: var(--gray-500); margin-top: 4px; }
+.badge {
+  background: var(--green-100);
+  color: var(--green-700);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 20px;
+  letter-spacing: 0.3px;
+}
+
+/* ── GRID ── */
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+.grid-21 { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 20px; }
+.full { grid-column: 1 / -1; }
+
+/* ── CARD ── */
+.card {
+  background: var(--card);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  padding: 20px;
+  box-shadow: var(--shadow);
+}
+.card-title {
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--gray-500);
+  margin-bottom: 14px;
+}
+
+/* ── METRIC CARD ── */
+.metric-card {
+  background: var(--card);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  padding: 18px 20px;
+  box-shadow: var(--shadow);
+  position: relative;
+  overflow: hidden;
+}
+.metric-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--accent, var(--green-500));
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+.metric-label { font-size: 11px; font-weight: 500; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 6px; }
+.metric-value { font-family: 'Space Grotesk', sans-serif; font-size: 28px; font-weight: 700; color: var(--gray-900); line-height: 1; }
+.metric-sub { font-size: 12px; color: var(--gray-500); margin-top: 5px; }
+.metric-up { color: var(--green-600); }
+.metric-down { color: var(--red); }
+
+/* ── AI SCORE RING ── */
+.score-section { display: flex; flex-direction: column; gap: 14px; }
+.score-row { display: flex; align-items: center; gap: 12px; }
+.score-label { font-size: 13px; color: var(--gray-700); width: 90px; flex-shrink: 0; }
+.score-bar-wrap { flex: 1; height: 8px; background: var(--gray-100); border-radius: 4px; overflow: hidden; }
+.score-bar { height: 100%; border-radius: 4px; transition: width 1.4s cubic-bezier(0.16, 1, 0.3, 1); width: 0; }
+.score-num { font-family: 'Space Grotesk', sans-serif; font-size: 14px; font-weight: 700; width: 36px; text-align: right; }
+
+/* ── WORD CLOUD ── */
+#wordcloud-canvas { width: 100%; cursor: default; }
+.wc-word {
+  cursor: pointer;
+  transition: opacity 0.2s;
+  user-select: none;
+}
+.wc-word:hover { opacity: 0.7; }
+
+/* ── SENTIMENT TAGS ── */
+.tag-cloud { display: flex; flex-wrap: wrap; gap: 8px; }
+.tag {
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: default;
+  transition: transform 0.15s;
+}
+.tag:hover { transform: scale(1.05); }
+.tag-pos { background: var(--green-100); color: var(--green-700); }
+.tag-neg { background: #FDECEA; color: #C0392B; }
+.tag-size-1 { font-size: 11px; padding: 4px 10px; }
+.tag-size-2 { font-size: 12px; }
+.tag-size-3 { font-size: 14px; padding: 6px 14px; }
+.tag-size-4 { font-size: 16px; padding: 7px 16px; }
+
+/* ── PERSONA CARD ── */
+.persona-item {
+  padding: 14px 16px;
+  border-radius: var(--radius-sm);
+  background: var(--gray-100);
+  border-left: 4px solid var(--green-500);
+  margin-bottom: 10px;
+  transition: background 0.15s;
+}
+.persona-item:hover { background: var(--green-50); }
+.persona-name { font-size: 13px; font-weight: 500; color: var(--gray-900); margin-bottom: 4px; }
+.persona-quote { font-size: 12px; color: var(--gray-500); font-style: italic; margin-bottom: 8px; }
+.persona-bar-wrap { height: 5px; background: var(--gray-300); border-radius: 3px; overflow: hidden; }
+.persona-bar { height: 100%; border-radius: 3px; transition: width 1.2s cubic-bezier(0.16, 1, 0.3, 1); width: 0; }
+
+/* ── GAP CARD ── */
+.gap-item {
+  padding: 14px 16px;
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  border: 1px solid var(--border);
+  margin-bottom: 10px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.gap-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 3px; }
+.gap-body { flex: 1; }
+.gap-need { font-size: 13px; font-weight: 500; color: var(--gray-900); }
+.gap-opp { font-size: 12px; color: var(--gray-500); margin-top: 3px; }
+.freq-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+.freq-high { background: #FDECEA; color: #C0392B; }
+.freq-mid  { background: #FEF3E2; color: #B7770D; }
+.freq-low  { background: var(--green-100); color: var(--green-700); }
+
+/* ── DONUT ── */
+.donut-wrap { position: relative; width: 140px; height: 140px; margin: 0 auto; }
+.donut-label {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+.donut-pct { font-family: 'Space Grotesk', sans-serif; font-size: 26px; font-weight: 700; color: var(--gray-900); line-height: 1; }
+.donut-sub { font-size: 11px; color: var(--gray-500); margin-top: 2px; }
+
+/* ── CHART CONTAINERS ── */
+.chart-wrap { position: relative; width: 100%; }
+.chart-wrap-300 { height: 300px; }
+.chart-wrap-240 { height: 240px; }
+
+/* ── TABS ── */
+.tabs { display: flex; gap: 4px; margin-bottom: 16px; background: var(--gray-100); padding: 4px; border-radius: var(--radius-sm); }
+.tab-btn {
+  flex: 1; padding: 8px 12px; font-size: 12px; font-weight: 500;
+  border: none; background: transparent; border-radius: 6px;
+  cursor: pointer; color: var(--gray-500); transition: all 0.15s;
+  font-family: 'Noto Sans KR', sans-serif;
+}
+.tab-btn.active { background: var(--card); color: var(--green-800); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* ── WIDGET FOOTER ── */
+.widget-footer { margin-top: 28px; padding-top: 16px; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.widget-footer span { font-size: 11px; color: var(--gray-300); }
+.footer-logo { font-family: 'Space Grotesk', sans-serif; font-size: 13px; font-weight: 700; color: var(--green-600); }
+
+/* ── COUNTER ANIMATION ── */
+@keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.card, .metric-card { animation: fadeUp 0.4s ease both; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-left">
+    <h1>🌿 OliveAI Review Intelligence</h1>
+    <p>메디큐브 AGE-R 부스터 패드 · 수집 리뷰 112개 · 2025년 3월 기준</p>
+  </div>
+  <span class="badge">AI-Powered · Claude Sonnet</span>
+</div>
+
+<!-- ROW 1: METRIC CARDS -->
+<div class="grid-4">
+  <div class="metric-card" style="--accent: var(--green-500)">
+    <div class="metric-label">평균 별점</div>
+    <div class="metric-value" id="m1">0.0</div>
+    <div class="metric-sub metric-up">▲ 0.3 vs 지난달</div>
+  </div>
+  <div class="metric-card" style="--accent: #52B788">
+    <div class="metric-label">긍정 리뷰 비율</div>
+    <div class="metric-value" id="m2">0%</div>
+    <div class="metric-sub metric-up">▲ 5% vs 경쟁사</div>
+  </div>
+  <div class="metric-card" style="--accent: var(--amber)">
+    <div class="metric-label">AI 종합 지수</div>
+    <div class="metric-value" id="m3">0점</div>
+    <div class="metric-sub">민감성 피부 추천</div>
+  </div>
+  <div class="metric-card" style="--accent: var(--red)">
+    <div class="metric-label">미충족 니즈</div>
+    <div class="metric-value" id="m4">0건</div>
+    <div class="metric-sub metric-down">▼ 개선 기회</div>
+  </div>
+</div>
+
+<!-- ROW 2: WORD CLOUD + SENTIMENT -->
+<div class="grid-21">
+  <div class="card">
+    <div class="card-title">🔤 Word Cloud — 성분 & 효과 키워드</div>
+    <canvas id="wordcloud-canvas" height="220"></canvas>
+  </div>
+  <div class="card">
+    <div class="card-title">😊 Sentiment Analysis</div>
+    <div class="donut-wrap" style="margin-bottom:14px">
+      <canvas id="donutChart"></canvas>
+      <div class="donut-label">
+        <div class="donut-pct" id="donutPct">0%</div>
+        <div class="donut-sub">긍정</div>
+      </div>
+    </div>
+    <div style="font-size:11px; color:var(--gray-500); text-align:center; margin-bottom:14px">긍정 78% · 중립 10% · 부정 12%</div>
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('pos')">긍정</button>
+      <button class="tab-btn" onclick="switchTab('neg')">부정</button>
+    </div>
+    <div id="tab-pos" class="tab-panel active">
+      <div class="tag-cloud" id="posCloud"></div>
+    </div>
+    <div id="tab-neg" class="tab-panel">
+      <div class="tag-cloud" id="negCloud"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ROW 3: AI SCORE + PERSONA + GAP -->
+<div class="grid-3">
+  <!-- AI Score -->
+  <div class="card">
+    <div class="card-title">🎯 AI Score — 피부 타입별 추천 지수</div>
+    <div class="score-section" id="scoreSection"></div>
+  </div>
+
+  <!-- Persona -->
+  <div class="card">
+    <div class="card-title">👤 Persona Mapping — 피부 고민별 만족도</div>
+    <div id="personaSection"></div>
+  </div>
+
+  <!-- Product Gap -->
+  <div class="card">
+    <div class="card-title">🚀 Product Gap — 미충족 니즈</div>
+    <div id="gapSection"></div>
+  </div>
+</div>
+
+<!-- ROW 4: COMPETITOR RADAR + BAR -->
+<div class="grid-2">
+  <div class="card">
+    <div class="card-title">🏆 Competitor Comparison — 방사형 비교</div>
+    <div class="chart-wrap chart-wrap-300">
+      <canvas id="radarChart"></canvas>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">📊 항목별 세부 비교 — vs 구달 청귤 비타C 패드</div>
+    <div class="chart-wrap chart-wrap-300">
+      <canvas id="barChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- ROW 5: WINNING POINTS + RATING DIST -->
+<div class="grid-2">
+  <div class="card">
+    <div class="card-title">⭐ 별점 분포</div>
+    <div class="chart-wrap chart-wrap-240">
+      <canvas id="ratingChart"></canvas>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">🏅 Winning Points — 구매 결정 핵심 요인</div>
+    <div class="chart-wrap chart-wrap-240">
+      <canvas id="winChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<div class="widget-footer">
+  <span>데이터 기준: 2025.03 · Selenium 실시간 수집 · Claude Sonnet 분석</span>
+  <span class="footer-logo">🌿 OliveAI</span>
+</div>
+
+<script>
+/* ── DATA ── */
+const data = {
+  metrics: { rating: 4.3, posRatio: 78, aiScore: 85, unmet: 3 },
+  wordcloud: [
+    { text: "나이아신아마이드", size: 42, sentiment: "pos" },
+    { text: "흡수력", size: 36, sentiment: "pos" },
+    { text: "미백", size: 34, sentiment: "pos" },
+    { text: "잡티개선", size: 32, sentiment: "pos" },
+    { text: "부스팅", size: 30, sentiment: "pos" },
+    { text: "탄력", size: 28, sentiment: "pos" },
+    { text: "패드질감", size: 26, sentiment: "pos" },
+    { text: "자극없음", size: 24, sentiment: "pos" },
+    { text: "향기", size: 22, sentiment: "neg" },
+    { text: "펩타이드", size: 20, sentiment: "pos" },
+    { text: "레티놀", size: 19, sentiment: "pos" },
+    { text: "가성비", size: 18, sentiment: "neg" },
+    { text: "보습력", size: 17, sentiment: "pos" },
+    { text: "아데노신", size: 16, sentiment: "pos" },
+    { text: "EGF", size: 15, sentiment: "pos" },
+    { text: "용량", size: 14, sentiment: "neg" },
+    { text: "찐득거림", size: 13, sentiment: "neg" },
+    { text: "소량", size: 12, sentiment: "neg" },
+  ],
+  sentiment: {
+    pos: [
+      { text: "피부결 개선", size: 4 }, { text: "흡수 빠름", size: 4 },
+      { text: "탄력 UP", size: 3 }, { text: "잡티 감소", size: 3 },
+      { text: "자극 없음", size: 3 }, { text: "명품 성분", size: 2 },
+      { text: "사용감 좋음", size: 2 }, { text: "광채 피부", size: 2 },
+    ],
+    neg: [
+      { text: "가격 부담", size: 4 }, { text: "용량 부족", size: 3 },
+      { text: "향 호불호", size: 3 }, { text: "묵직한 텍스처", size: 2 },
+    ]
+  },
+  scores: [
+    { label: "민감성 피부", value: 85, color: "#52B788" },
+    { label: "건성 피부",   value: 78, color: "#74C69D" },
+    { label: "복합성 피부", value: 82, color: "#40916C" },
+    { label: "지성 피부",   value: 67, color: "#F4A261" },
+    { label: "노화 고민",   value: 90, color: "#2D6A4F" },
+  ],
+  personas: [
+    { name: "잡티/미백 고민", quote: '"2주 만에 잡티가 흐려졌어요"', value: 88, color: "#52B788" },
+    { name: "탄력/주름 고민", quote: '"탄력이 돌아온 느낌"', value: 72, color: "#F4A261" },
+    { name: "민감/진정 고민", quote: '"자극 없이 사용 가능해서 좋아요"', value: 81, color: "#74C69D" },
+    { name: "보습/건조 고민", quote: '"보습은 조금 아쉬워요"', value: 64, color: "#E76F51" },
+  ],
+  gaps: [
+    { need: "패드 건조 방지 개선", freq: "high", opp: "밀봉 구조 또는 내용물 증량 기회" },
+    { need: "향 무첨가 라인업",    freq: "mid",  opp: "민감성 고객을 위한 무향 SKU 출시" },
+    { need: "소용량 체험팩 요청",  freq: "mid",  opp: "첫 구매 전환율 제고를 위한 미니 사이즈" },
+  ],
+  competitor: {
+    labels: ["보습력","흡수력","자극없음","가성비","성분력","사용감"],
+    this:   [82, 88, 85, 70, 90, 80],
+    comp:   [75, 80, 72, 88, 82, 76],
+    name:   "구달 청귤 비타C 패드"
+  },
+  ratings: { labels:["5점","4점","3점","2점","1점"], data:[58,28,9,3,2] },
+  winning: {
+    labels: ["흡수력","성분 신뢰성","피부결 개선","자극없음","탄력 효과"],
+    data:   [92, 89, 85, 82, 74]
+  }
+};
+
+/* ── COUNTER ANIMATION ── */
+function animateCount(el, target, suffix='', decimals=0, duration=1200) {
+  let start = null;
+  const step = ts => {
+    if (!start) start = ts;
+    const p = Math.min((ts - start) / duration, 1);
+    const ease = 1 - Math.pow(1 - p, 3);
+    const val = decimals ? (target * ease).toFixed(decimals) : Math.round(target * ease);
+    el.textContent = val + suffix;
+    if (p < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+
+  /* Metrics */
+  setTimeout(() => animateCount(document.getElementById('m1'), data.metrics.rating, '', 1), 200);
+  setTimeout(() => animateCount(document.getElementById('m2'), data.metrics.posRatio, '%'), 300);
+  setTimeout(() => animateCount(document.getElementById('m3'), data.metrics.aiScore, '점'), 400);
+  setTimeout(() => animateCount(document.getElementById('m4'), data.metrics.unmet, '건'), 500);
+
+  /* Donut pct */
+  setTimeout(() => animateCount(document.getElementById('donutPct'), data.metrics.posRatio, '%'), 600);
+
+  /* Sentiment tags */
+  const posCloud = document.getElementById('posCloud');
+  const negCloud = document.getElementById('negCloud');
+  data.sentiment.pos.forEach(t => {
+    posCloud.innerHTML += `<span class="tag tag-pos tag-size-${t.size}">${t.text}</span>`;
+  });
+  data.sentiment.neg.forEach(t => {
+    negCloud.innerHTML += `<span class="tag tag-neg tag-size-${t.size}">${t.text}</span>`;
+  });
+
+  /* Score bars */
+  const scoreSection = document.getElementById('scoreSection');
+  data.scores.forEach(s => {
+    scoreSection.innerHTML += `
+      <div class="score-row">
+        <span class="score-label">${s.label}</span>
+        <div class="score-bar-wrap">
+          <div class="score-bar" data-val="${s.value}" style="background:${s.color}"></div>
+        </div>
+        <span class="score-num" style="color:${s.color}">${s.value}</span>
+      </div>`;
+  });
+  setTimeout(() => {
+    document.querySelectorAll('.score-bar').forEach(b => {
+      b.style.width = b.dataset.val + '%';
+    });
+  }, 300);
+
+  /* Persona */
+  const personaSection = document.getElementById('personaSection');
+  data.personas.forEach(p => {
+    personaSection.innerHTML += `
+      <div class="persona-item" style="border-left-color:${p.color}">
+        <div class="persona-name">${p.name} <strong style="float:right;color:${p.color}">${p.value}점</strong></div>
+        <div class="persona-quote">${p.quote}</div>
+        <div class="persona-bar-wrap">
+          <div class="persona-bar" data-val="${p.value}" style="background:${p.color}"></div>
+        </div>
+      </div>`;
+  });
+  setTimeout(() => {
+    document.querySelectorAll('.persona-bar').forEach(b => {
+      b.style.width = b.dataset.val + '%';
+    });
+  }, 400);
+
+  /* Gap */
+  const gapSection = document.getElementById('gapSection');
+  data.gaps.forEach(g => {
+    const cls = g.freq === 'high' ? 'freq-high' : g.freq === 'mid' ? 'freq-mid' : 'freq-low';
+    const dot = g.freq === 'high' ? '#E76F51' : g.freq === 'mid' ? '#F4A261' : '#52B788';
+    const label = g.freq === 'high' ? '빈도 높음' : g.freq === 'mid' ? '빈도 중간' : '빈도 낮음';
+    gapSection.innerHTML += `
+      <div class="gap-item">
+        <div class="gap-dot" style="background:${dot}"></div>
+        <div class="gap-body">
+          <div class="gap-need">${g.need}</div>
+          <div class="gap-opp">💡 ${g.opp}</div>
+        </div>
+        <span class="freq-badge ${cls}">${label}</span>
+      </div>`;
+  });
+
+  /* Word Cloud (Canvas) */
+  const wcc = document.getElementById('wordcloud-canvas');
+  const ctx = wcc.getContext('2d');
+  wcc.width  = wcc.offsetWidth * devicePixelRatio;
+  wcc.height = 220 * devicePixelRatio;
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+  const W = wcc.offsetWidth, H = 220;
+
+  const placed = [];
+  function overlaps(x, y, w, h) {
+    return placed.some(p =>
+      x < p.x + p.w + 8 && x + w + 8 > p.x &&
+      y < p.y + p.h + 6 && y + h + 6 > p.y
+    );
+  }
+  data.wordcloud.forEach(word => {
+    ctx.font = `${word.size > 30 ? 600 : 400} ${word.size}px 'Noto Sans KR'`;
+    ctx.fillStyle = word.sentiment === 'pos' ? '#2D6A4F' : '#C0392B';
+    ctx.globalAlpha = 0.7 + (word.size / 42) * 0.3;
+    const metrics = ctx.measureText(word.text);
+    const tw = metrics.width, th = word.size;
+    for (let attempt = 0; attempt < 200; attempt++) {
+      const rx = 30 + Math.random() * (W - tw - 30);
+      const ry = 10 + Math.random() * (H - th - 10);
+      if (!overlaps(rx, ry, tw, th)) {
+        ctx.fillText(word.text, rx, ry + th * 0.8);
+        placed.push({ x: rx, y: ry, w: tw, h: th });
+        break;
+      }
+    }
+  });
+  ctx.globalAlpha = 1;
+
+  /* Donut Chart */
+  new Chart(document.getElementById('donutChart'), {
+    type: 'doughnut',
+    data: {
+      datasets: [{
+        data: [78, 10, 12],
+        backgroundColor: ['#52B788','#95D5B2','#E76F51'],
+        borderWidth: 0,
+        hoverOffset: 4,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      cutout: '72%',
+      plugins: { legend: { display: false }, tooltip: { enabled: false } }
+    }
+  });
+
+  /* Radar Chart */
+  new Chart(document.getElementById('radarChart'), {
+    type: 'radar',
+    data: {
+      labels: data.competitor.labels,
+      datasets: [
+        {
+          label: '메디큐브 AGE-R',
+          data: data.competitor.this,
+          borderColor: '#40916C',
+          backgroundColor: 'rgba(82,183,136,0.18)',
+          borderWidth: 2,
+          pointBackgroundColor: '#40916C',
+          pointRadius: 4,
+        },
+        {
+          label: data.competitor.name,
+          data: data.competitor.comp,
+          borderColor: '#457B9D',
+          backgroundColor: 'rgba(69,123,157,0.12)',
+          borderWidth: 2,
+          pointBackgroundColor: '#457B9D',
+          pointRadius: 4,
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 14 } } },
+      scales: {
+        r: {
+          min: 50, max: 100,
+          ticks: { stepSize: 10, font: { size: 10 } },
+          grid: { color: 'rgba(0,0,0,0.06)' },
+          angleLines: { color: 'rgba(0,0,0,0.06)' },
+          pointLabels: { font: { size: 11 } }
+        }
+      }
+    }
+  });
+
+  /* Bar Chart */
+  new Chart(document.getElementById('barChart'), {
+    type: 'bar',
+    data: {
+      labels: data.competitor.labels,
+      datasets: [
+        { label: '메디큐브 AGE-R', data: data.competitor.this, backgroundColor: '#52B788', borderRadius: 5 },
+        { label: data.competitor.name, data: data.competitor.comp, backgroundColor: '#B0C4D8', borderRadius: 5 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 12 } } },
+      scales: {
+        y: { min: 50, max: 100, grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 11 } } },
+        x: { grid: { display: false }, ticks: { font: { size: 11 } } }
+      }
+    }
+  });
+
+  /* Rating Distribution */
+  new Chart(document.getElementById('ratingChart'), {
+    type: 'bar',
+    data: {
+      labels: data.ratings.labels,
+      datasets: [{
+        data: data.ratings.data,
+        backgroundColor: ['#40916C','#52B788','#95D5B2','#F4A261','#E76F51'],
+        borderRadius: 5,
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 11 } } },
+        y: { grid: { display: false }, ticks: { font: { size: 12 } } }
+      }
+    }
+  });
+
+  /* Winning Points */
+  new Chart(document.getElementById('winChart'), {
+    type: 'bar',
+    data: {
+      labels: data.winning.labels,
+      datasets: [{
+        data: data.winning.data,
+        backgroundColor: ['#2D6A4F','#40916C','#52B788','#74C69D','#95D5B2'],
+        borderRadius: 5,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: { label: ctx => ` 긍정 지수: ${ctx.raw}점` }
+        }
+      },
+      scales: {
+        y: { min: 60, max: 100, grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 11 } } },
+        x: { grid: { display: false }, ticks: { font: { size: 10 }, maxRotation: 15 } }
+      }
+    }
+  });
+});
+
+/* Tab switch */
+function switchTab(id) {
+  document.querySelectorAll('.tab-btn').forEach((b,i) => {
+    b.classList.toggle('active', (i === 0 && id === 'pos') || (i === 1 && id === 'neg'));
+  });
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+}
+</script>
+</body>
+</html>
