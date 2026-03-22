@@ -7,6 +7,7 @@ import time
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service # 이 줄을 추가하세요
 from webdriver_manager.chrome import ChromeDriverManager
 
 # --- 페이지 설정 ---
