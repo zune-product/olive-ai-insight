@@ -15,8 +15,8 @@ body{font-family:'Noto Sans KR',sans-serif;background:#fff;color:#222;min-width:
 .gnb-top a{color:#888;text-decoration:none}
 .gnb-top a:hover{color:#333}
 .gnb{height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 40px;border-bottom:1px solid #e0e0e0}
-.logo{font-size:22px;font-weight:700;color:#1a1a1a;letter-spacing:-1px;text-decoration:none}
-.logo span{color:#4CAF50}
+.logo{display:flex;align-items:center;text-decoration:none;height:32px}
+.logo img{height:32px;width:auto;display:block}
 .gnb-nav{display:flex;gap:28px;align-items:center}
 .gnb-nav a{font-size:13px;font-weight:500;color:#333;text-decoration:none;padding:4px 0;position:relative}
 .gnb-nav a:hover{color:#4CAF50}
@@ -143,6 +143,26 @@ background:#fff;border:none;font-family:'Noto Sans KR',sans-serif;transition:all
 }
 .ai-label::before{content:'✦';font-size:9px}
 
+/* ── AI 분석 버튼 ── */
+.ai-btn{
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  width:100%;margin-top:10px;padding:9px 0;
+  background:linear-gradient(135deg,#00a960,#007a45);
+  color:#fff;font-size:12px;font-weight:700;
+  border:none;border-radius:8px;cursor:pointer;
+  font-family:'Noto Sans KR',sans-serif;
+  letter-spacing:0.2px;
+  transition:all .18s ease;
+  box-shadow:0 2px 8px rgba(0,169,96,.25);
+}
+.ai-btn:hover{
+  background:linear-gradient(135deg,#009954,#006a3c);
+  box-shadow:0 4px 14px rgba(0,169,96,.4);
+  transform:translateY(-1px);
+}
+.ai-btn:active{transform:translateY(0);box-shadow:0 2px 6px rgba(0,169,96,.2);}
+.ai-btn svg{width:13px;height:13px;flex-shrink:0}
+
 /* ── GHOST CARDS (products 5+) ── */
 .ghost-card .product-img-wrap{background:#f5f5f5}
 .ghost-card .product-name{color:#bbb;background:#f0f0f0;height:13px;border-radius:3px;margin:3px 0}
@@ -160,12 +180,15 @@ border-radius:4px;font-family:'Noto Sans KR',sans-serif;transition:all .15s}
 /* ── FOOTER ── */
 footer{background:#1a1a1a;color:#888;padding:32px 40px;margin-top:40px;font-size:11px}
 footer .f-top{display:flex;justify-content:space-between;margin-bottom:20px}
-footer .f-logo{font-size:18px;font-weight:700;color:#fff;letter-spacing:-0.5px}
-footer .f-logo span{color:#4CAF50}
+footer .f-logo{display:flex;align-items:center;height:24px}
 footer .f-links{display:flex;gap:20px}
 footer .f-links a{color:#888;text-decoration:none;font-size:11px}
 footer .f-links a:hover{color:#ccc}
-footer .f-bottom{color:#555;line-height:1.7}
+footer .f-bottom{color:#666;line-height:1.9;font-size:11px}
+footer .f-bottom .f-row{margin-bottom:2px}
+footer .f-bottom .f-row a{color:#888;text-decoration:none}
+footer .f-bottom .f-row a:hover{color:#ccc}
+footer .f-copyright{color:#555;margin-top:14px;font-size:10px}
 
 /* ── MODAL ── */
 .modal-overlay{
@@ -203,7 +226,10 @@ font-size:13px;font-weight:600;text-decoration:none;transition:all .15s}
 
 <!-- GNB -->
 <nav class="gnb">
-  <a href="#" class="logo">olive<span>young</span></a>
+  <a href="https://www.oliveyoung.co.kr" class="logo" target="_blank">
+    <img src="https://static.oliveyoung.co.kr/pc-static-root/image/comm/h1_logo.png?ver=2"
+         alt="올리브영" style="height:28px;width:auto">
+  </a>
   <div class="gnb-nav">
     <a href="#">올영PICK</a>
     <a href="#">쇼핑</a>
@@ -333,6 +359,12 @@ font-size:13px;font-weight:600;text-decoration:none;transition:all .15s}
           <span class="review-count">(48,203)</span>
         </div>
         <div class="ai-label">AI 리뷰 분석 가능</div>
+        <button class="ai-btn" onclick="event.stopPropagation();openProduct(1)">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/>
+          </svg>
+          🤖 AI 리뷰 분석 보기
+        </button>
       </div>
     </div>
 
@@ -368,6 +400,12 @@ font-size:13px;font-weight:600;text-decoration:none;transition:all .15s}
           <span class="review-count">(32,891)</span>
         </div>
         <div class="ai-label">AI 리뷰 분석 가능</div>
+        <button class="ai-btn" onclick="event.stopPropagation();openProduct(2)">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/>
+          </svg>
+          🤖 AI 리뷰 분석 보기
+        </button>
       </div>
     </div>
 
@@ -406,6 +444,12 @@ font-size:13px;font-weight:600;text-decoration:none;transition:all .15s}
           <span class="review-count">(27,445)</span>
         </div>
         <div class="ai-label">AI 리뷰 분석 가능</div>
+        <button class="ai-btn" onclick="event.stopPropagation();openProduct(3)">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/>
+          </svg>
+          🤖 AI 리뷰 분석 보기
+        </button>
       </div>
     </div>
 
@@ -444,6 +488,12 @@ font-size:13px;font-weight:600;text-decoration:none;transition:all .15s}
           <span class="review-count">(21,067)</span>
         </div>
         <div class="ai-label">AI 리뷰 분석 가능</div>
+        <button class="ai-btn" onclick="event.stopPropagation();openProduct(4)">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/>
+          </svg>
+          🤖 AI 리뷰 분석 보기
+        </button>
       </div>
     </div>
 
@@ -462,18 +512,42 @@ font-size:13px;font-weight:600;text-decoration:none;transition:all .15s}
 <!-- FOOTER -->
 <footer>
   <div class="f-top">
-    <div class="f-logo">olive<span>young</span></div>
+    <div class="f-logo">
+      <img src="https://static.oliveyoung.co.kr/pc-static-root/image/footer/foot_logo.png?ver=2"
+           alt="OLIVEYOUNG" style="height:20px;width:auto">
+    </div>
     <div class="f-links">
-      <a href="#">이용약관</a>
-      <a href="#">개인정보처리방침</a>
-      <a href="#">고객센터</a>
-      <a href="#">사업자정보확인</a>
+      <a href="#">이용약관과 정책</a>
+      <a href="#">법적고지</a>
+      <a href="#" style="font-weight:700;color:#ccc">개인정보처리방침</a>
+      <a href="#">청소년보호방침</a>
+      <a href="#">고정형 영상정보처리기기 운영/관리 방침</a>
+      <a href="#">이메일무단수집거부</a>
     </div>
   </div>
   <div class="f-bottom">
-    CJ올리브영(주) | 대표이사: 구창근 | 사업자등록번호: 211-86-72462<br>
-    통신판매업 신고번호: 제2014-서울강남-01521호 | 서울특별시 중구 세종대로 9길 53<br>
-    © CJ Oliveyoung Co., Ltd. All Rights Reserved.
+    <div class="f-row">
+      씨제이올리브영 주식회사 &nbsp;|&nbsp; 대표이사 : 이선정 &nbsp;|&nbsp; 사업자등록번호 : 809-81-01574 &nbsp;|&nbsp;
+      <a href="#">사업자 정보확인 &gt;</a>
+    </div>
+    <div class="f-row">
+      주소 : (04323) 서울특별시 용산구 한강대로 372, 24층 (동자동, KDB타워)
+    </div>
+    <div class="f-row">
+      통신판매업신고번호 : 2019-서울용산-1428 &nbsp;|&nbsp; 호스팅사업자 : CJ 올리브네트웍스 &nbsp;|&nbsp; 이메일 : <a href="/cdn-cgi/l/email-protection#5c2b393e313d2f28392e1c3f36333d723f3331"><span class="__cf_email__" data-cfemail="d3a4b6b1beb2a0a7b6a193b0b9bcb2fdb0bcbe">[email&#160;protected]</span></a>
+    </div>
+    <div class="f-row" style="margin-top:6px;color:#777;font-size:10.5px">
+      올리브영은 현금 결제한 금액에 대해 하나은행과 채무지급보증 계약을 체결하여 안전한 거래를 보장하고 있습니다. &nbsp;
+      <a href="#">서비스 가입사실 확인 &gt;</a>
+    </div>
+    <div class="f-row" style="margin-top:4px;color:#777;font-size:10.5px">
+      올리브영 홈페이지에서 판매되는 상품 중에는 올리브영에 입점한 개별 판매자가 판매하는 상품이 포함되어 있습니다.
+      개별 판매자의 판매 상품의 경우, 올리브영은 통신판매중개자로서 통신판매의 당사자가 아니며
+      판매자가 등록한 상품정보 및 거래 정보 등에 대하여 책임을 부담하지 않습니다.
+    </div>
+    <div class="f-copyright">
+      © CJ Olive Young Corp. All Rights Reserved.
+    </div>
   </div>
 </footer>
 
@@ -490,7 +564,7 @@ font-size:13px;font-weight:600;text-decoration:none;transition:all .15s}
   </div>
 </div>
 
-<script>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 const PRODUCTS = {
   1: { name: '라운드랩 1025 독도 토너', page: '?product=1' },
   2: { name: '아누아 어성초 77 수딩 토너', page: '?product=2' },
@@ -520,16 +594,4 @@ function setTab(el, cat) {
   el.classList.add('on');
   const titles = {skincare:'스킨케어',mask:'마스크팩',cleanser:'클렌징',sun:'선케어'};
   document.querySelector('.rank-title').innerHTML =
-    titles[cat] + ' <span>랭킹</span>';
-}
-
-// wish btn toggle
-document.querySelectorAll('.wish-btn').forEach(btn => {
-  btn.addEventListener('click', function(e) {
-    e.stopPropagation();
-    this.classList.toggle('on');
-  });
-});
-</script>
-</body>
-</html>
+    titles[cat] + '

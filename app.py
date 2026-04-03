@@ -65,6 +65,13 @@ PRODUCTS = {
 
 COMPETITOR = "에스트라 아토베리어365 크림"
 
+# ── 색상 헬퍼 ────────────────────────────────
+def hex_to_rgba(hex_color: str, alpha: float = 0.18) -> str:
+    """'#rrggbb' → 'rgba(r,g,b,alpha)' 변환 (Plotly fillcolor 호환)"""
+    h = hex_color.lstrip("#")
+    r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+    return f"rgba({r},{g},{b},{alpha})"
+
 # ─────────────────────────────────────────────
 # 페이지 설정
 # ─────────────────────────────────────────────
@@ -566,7 +573,7 @@ with tab4:
                 fill="toself",
                 name=product["name"],
                 line_color=product["color"],
-                fillcolor=product["color"] + "30",
+                fillcolor=hex_to_rgba(product["color"], 0.18),
             ))
             fig_r.add_trace(go.Scatterpolar(
                 r=df_c["competitor"].tolist() + [df_c["competitor"].iloc[0]],
@@ -574,7 +581,7 @@ with tab4:
                 fill="toself",
                 name=comp_name,
                 line_color="#90A4AE",
-                fillcolor="#90A4AE30",
+                fillcolor=hex_to_rgba("#90A4AE", 0.15),
             ))
             fig_r.update_layout(
                 polar=dict(radialaxis=dict(range=[50, 100])),
