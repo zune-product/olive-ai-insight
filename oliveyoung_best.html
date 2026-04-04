@@ -564,6 +564,11 @@ font-size:13px;font-weight:600;text-decoration:none;transition:all .15s}
   </div>
 </div>
 
+<script>
+// ✅ Streamlit Cloud 배포 URL — 실제 URL로 변경하세요
+// 예: 'https://your-app-name.streamlit.app'
+window.STREAMLIT_URL = 'https://olive-ai-insight.streamlit.app';
+</script>
 <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 const PRODUCTS = {
   1: { name: '라운드랩 1025 독도 토너', page: '?product=1' },
@@ -575,11 +580,11 @@ const PRODUCTS = {
 function openProduct(id) {
   const p = PRODUCTS[id];
   document.getElementById('modal-title').textContent = p.name;
-  document.getElementById('modal-link').href = 'app.py' + p.page;
-  // Streamlit 로컬 서버로 연결 (포트 8501)
-  document.getElementById('modal-link').href =
-    'http://localhost:8501' + p.page;
-  document.getElementById('modal-link').target = '_blank';
+
+  // Streamlit Cloud URL 자동 감지 또는 상대경로 사용
+  const base = window.STREAMLIT_URL || '';
+  document.getElementById('modal-link').href = base + p.page;
+  document.getElementById('modal-link').target = base ? '_blank' : '_self';
   document.getElementById('modal').classList.add('show');
 }
 function closeModal() {
