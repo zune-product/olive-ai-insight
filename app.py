@@ -76,23 +76,6 @@ if os.path.exists(html_path):
     with open(html_path, "r", encoding="utf-8") as f:
         html_content = f.read()
 
-    inject_js = """
-<script>
-// HTML 내 openProduct → Streamlit URL 파라미터 변경 (팝업 트리거)
-window.STREAMLIT_URL = '';
-function openProduct(id) {
-  window.parent.postMessage({type:'SELECT_PRODUCT', id: id}, '*');
-}
-</script>
-<script>
-window.addEventListener('message', function(e) {
-  if (e.data && e.data.type === 'SELECT_PRODUCT') {
-    window.location.search = '?product=' + e.data.id;
-  }
-});
-</script>
-"""
-    html_content = html_content.replace("</body>", inject_js + "</body>")
     st.components.v1.html(html_content, height=980, scrolling=True)
 
 # ── 팝업 모달 ──

@@ -554,9 +554,15 @@ font-size:13px;font-weight:600;text-decoration:none;transition:all .15s}
 <script>
 // AI 리뷰 분석 버튼 클릭 → Streamlit 팝업 트리거
 function openProduct(id) {
-  window.parent.postMessage({type:'SELECT_PRODUCT', id:id}, '*');
-  // fallback: Streamlit iframe 밖에서 직접 접근 시
-  if (window.self === window.top) window.location.search = '?product=' + id;
+  // Streamlit Cloud에서는 iframe 중첩 구조:
+  // 브라우저 → Streamlit iframe → oliveyoung HTML iframe
+  // window.top = 최상위 브라우저 창 = Streamlit URL 직접 변경
+  try {
+    window.top.location.href = window.top.location.origin + window.top.location.pathname + '?product=' + id;
+  } catch(e) {
+    // cross-origin fallback
+    window.parent.location.href = '?product=' + id;
+  }
 }
 </script>
 <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
