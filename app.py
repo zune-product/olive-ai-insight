@@ -1,11 +1,9 @@
 """
-app.py  ·  OliveAI Insight
+app.py · OliveAI Insight
 ─────────────────────────
-화면 구성:
-  · 기본: oliveyoung_best.html 임베드 (랭킹 페이지)
-  · ?product=N: AI 분석 팝업 모달 오버레이
-    - 페이지 이동 없이 같은 화면 위에 팝업
-    - 분석 자동 실행 → 간결한 시각화
+oliveyoung_best.html을 임베드하고,
+버튼 클릭 시 동일 HTML 내에서 팝업으로 AI 분석 결과를 표시합니다.
+(Streamlit iframe 보안 제약 우회 - HTML 내부에서 완결)
 """
 
 import os, json, re
@@ -21,32 +19,13 @@ PRODUCTS = {
     4: {"name":"구달 청귤 비타C 잡티케어 세럼",  "brand":"구달",    "filename":"product_4_goodal_serum.csv",   "color":"#f57f17","bg":"#fffde7","emoji":"🍊"},
 }
 
-st.set_page_config(page_title="🌿 OliveAI Insight", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="🌿 OliveAI Insight", layout="wide", initial_sidebar_bar_state="collapsed")
 
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
-html,body,[class*="css"]{font-family:'Noto Sans KR',sans-serif;}
-.popup-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;}
-.popup-box{background:#fff;border-radius:20px;width:100%;max-width:700px;max-height:88vh;overflow-y:auto;padding:32px 28px;box-shadow:0 24px 60px rgba(0,0,0,.25);animation:popIn .22s ease;}
-@keyframes popIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
-.popup-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px;}
-.popup-title{font-size:18px;font-weight:700;color:#1a1a1a;margin-top:4px;}
-.popup-close{background:none;border:none;font-size:22px;cursor:pointer;color:#aaa;line-height:1;padding:2px 8px;border-radius:6px;text-decoration:none;color:#aaa;}
-.popup-close:hover{background:#f0f0f0;color:#333;}
-.summary-box{background:linear-gradient(135deg,#f8fffe,#f0fff8);border-left:4px solid #4CAF50;border-radius:0 12px 12px 0;padding:14px 18px;margin:16px 0;font-size:14px;line-height:1.7;color:#1a1a1a;}
-.kw-pos{display:inline-block;background:#e8f5e9;color:#2e7d32;border-radius:20px;padding:4px 12px;margin:3px;font-size:13px;font-weight:500;}
-.kw-neg{display:inline-block;background:#fce4ec;color:#c62828;border-radius:20px;padding:4px 12px;margin:3px;font-size:13px;font-weight:500;}
-.skin-row{display:flex;align-items:center;gap:10px;margin:7px 0;}
-.skin-label{font-size:12px;color:#555;width:60px;flex-shrink:0;}
-.skin-track{flex:1;background:#eee;border-radius:4px;height:8px;overflow:hidden;}
-.skin-fill{height:100%;border-radius:4px;}
-.skin-num{font-size:12px;font-weight:700;width:32px;text-align:right;flex-shrink:0;}
-.close-btn{display:block;width:100%;margin-top:24px;padding:12px;background:#1a1a1a;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
-.close-btn:hover{background:#333;}
-/* Streamlit padding 제거 */
-.block-container{padding-top:0!important;padding-bottom:0!important;}
-header{display:none!important;}
+.block-container{padding:0!important}
+header{display:none!important}
+iframe{border:none!important}
 </style>
 """, unsafe_allow_html=True)
 
@@ -57,188 +36,210 @@ else:
     with st.sidebar:
         st.subheader("⚙️ 설정")
         api_key = st.text_input("Claude API Key", type="password", placeholder="sk-ant-...")
+
 if not api_key:
     st.warning("👈 사이드바에서 Claude API Key를 입력해주세요.")
     st.stop()
 
 client = Anthropic(api_key=api_key)
 
-# ── URL 파라미터 ──
-pid_str = st.query_params.get("product", "")
-try:
-    selected_pid = int(pid_str) if pid_str and pid_str.isdigit() else None
-except Exception:
-    selected_pid = None
+# ── 분석 함수 (캐시) ──
+@st.cache_data(ttl=86400, show_spinner=False)
+def analyze(filename: str, _hash: int) -> dict:
+    df_w   = pd.read_csv(os.path.join(DATA_DIR, filename))
+    sample = df_w["text"].dropna().head(80).tolist()
+    avg    = round(df_w["rating"].mean(), 2) if "rating" in df_w.columns else 0
+    tags   = (
+        df_w["skin_type"].dropna()
+        .str.split(", ").explode()
+        .value_counts().head(8).to_dict()
+    ) if "skin_type" in df_w.columns else {}
 
-# ── 메인 HTML 항상 임베드 ──
-html_path = "oliveyoung_best.html"
-if os.path.exists(html_path):
-    with open(html_path, "r", encoding="utf-8") as f:
-        html_content = f.read()
-
-    st.components.v1.html(html_content, height=980, scrolling=True)
-
-# ── 팝업 모달 ──
-if selected_pid and selected_pid in PRODUCTS:
-    product  = PRODUCTS[selected_pid]
-    csv_path = os.path.join(DATA_DIR, product["filename"])
-    color    = product["color"]
-    close_url = "/"
-
-    @st.cache_data(ttl=86400, show_spinner=False)
-    def analyze(filename: str, _hash: int) -> dict:
-        df_w   = pd.read_csv(os.path.join(DATA_DIR, filename))
-        sample = df_w["text"].dropna().head(80).tolist()
-        avg    = round(df_w["rating"].mean(), 2) if "rating" in df_w.columns else 0
-        tags   = (
-            df_w["skin_type"].dropna()
-            .str.split(", ").explode()
-            .value_counts().head(8).to_dict()
-        ) if "skin_type" in df_w.columns else {}
-
-        prompt = f"""뷰티 MD로서 아래 고객 리뷰 {len(sample)}개를 분석하세요.
-다른 텍스트 없이 JSON만 출력하세요.
+    prompt = f"""뷰티 MD로서 아래 고객 리뷰 {len(sample)}개를 분석하세요. JSON만 출력하세요.
 
 [통계] 평균별점:{avg} / 피부타입:{json.dumps(tags,ensure_ascii=False)}
 [리뷰]
 {chr(10).join(f'{i+1}. {t}' for i,t in enumerate(sample))}
 
-{{
-  "summary": "핵심 한 문장 요약 (최대 50자)",
-  "overall_score": 83,
-  "positive_ratio": 78,
-  "skin_scores": {{"민감성":85,"건성":78,"지성":70,"복합성":75}},
-  "positive_keywords": ["키워드1","키워드2","키워드3","키워드4","키워드5"],
-  "negative_keywords": ["주의점1","주의점2"],
-  "best_for": "이 상품이 가장 잘 맞는 사람 한 줄",
-  "caution": "주의가 필요한 상황 한 줄",
-  "one_line_personas": ["페르소나 인사이트 1","페르소나 인사이트 2"]
-}}"""
+{{"summary":"핵심 한 문장(최대 50자)","overall_score":83,"positive_ratio":78,"skin_scores":{{"민감성":85,"건성":78,"지성":70,"복합성":75}},"positive_keywords":["키워드1","키워드2","키워드3","키워드4","키워드5"],"negative_keywords":["주의1","주의2"],"best_for":"이 상품이 가장 잘 맞는 사람 한 줄","caution":"주의 상황 한 줄","one_line_personas":["인사이트1","인사이트2"]}}"""
 
-        msg   = client.messages.create(
-            model="claude-sonnet-4-20250514", max_tokens=800, temperature=0,
-            messages=[{"role":"user","content":prompt}]
-        )
-        raw   = msg.content[0].text
-        m     = re.search(r"\{.*\}", raw, re.DOTALL)
-        return json.loads(m.group() if m else raw)
+    msg   = client.messages.create(
+        model="claude-sonnet-4-20250514", max_tokens=800, temperature=0,
+        messages=[{"role":"user","content":prompt}]
+    )
+    raw   = msg.content[0].text
+    m     = re.search(r"\{.*\}", raw, re.DOTALL)
+    return json.loads(m.group() if m else raw)
 
-    # 분석 실행
-    if not os.path.exists(csv_path):
-        insight = None
-    else:
+# ── 모든 상품 사전 분석 (캐시 활용) ──
+insights = {}
+for pid, product in PRODUCTS.items():
+    csv_path = os.path.join(DATA_DIR, product["filename"])
+    if os.path.exists(csv_path):
         df = pd.read_csv(csv_path)
         _hash = hash(df.to_csv(index=False)[:2000])
-        with st.spinner(f"🤖 {product['name']} 리뷰 분석 중..."):
-            try:
-                insight = analyze(product["filename"], _hash)
-            except Exception as e:
-                insight = None
-                st.error(f"분석 오류: {e}")
+        try:
+            insights[pid] = analyze(product["filename"], _hash)
+        except:
+            insights[pid] = None
 
-    # ── 팝업 HTML 생성 ──
-    if insight:
-        overall   = insight.get("overall_score", 80)
-        pos_ratio = insight.get("positive_ratio", 75)
-        summary   = insight.get("summary", "")
-        pos_kws   = insight.get("positive_keywords", [])
-        neg_kws   = insight.get("negative_keywords", [])
-        skin_sc   = insight.get("skin_scores", {})
-        best_for  = insight.get("best_for", "")
-        caution   = insight.get("caution", "")
-        personas  = insight.get("one_line_personas", [])
+# ── 팝업 JS/CSS + 분석 데이터를 HTML에 주입 ──
+html_path = "oliveyoung_best.html"
+if not os.path.exists(html_path):
+    st.error("oliveyoung_best.html 파일이 없습니다.")
+    st.stop()
 
-        # 피부타입 바
-        skin_bars = ""
-        for sk, sc in skin_sc.items():
-            skin_bars += f"""
-<div class="skin-row">
-  <div class="skin-label">{sk}</div>
-  <div class="skin-track"><div class="skin-fill" style="width:{sc}%;background:{color}"></div></div>
-  <div class="skin-num" style="color:{color}">{sc}</div>
+with open(html_path, "r", encoding="utf-8") as f:
+    html = f.read()
+
+# 팝업 스타일 + 분석 데이터 + openProduct 함수 주입
+popup_css = """
+<style>
+.oy-popup-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;
+  display:none;align-items:center;justify-content:center;padding:20px}
+.oy-popup-overlay.on{display:flex}
+.oy-popup-box{background:#fff;border-radius:20px;width:100%;max-width:680px;
+  max-height:88vh;overflow-y:auto;padding:28px 24px;
+  box-shadow:0 24px 60px rgba(0,0,0,.3);animation:oyPop .2s ease}
+@keyframes oyPop{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+.oy-ph{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px}
+.oy-pt{font-size:17px;font-weight:700;color:#1a1a1a;margin-top:3px}
+.oy-pc{background:none;border:none;font-size:22px;cursor:pointer;color:#aaa;
+  padding:2px 8px;border-radius:6px;line-height:1}
+.oy-pc:hover{background:#f0f0f0;color:#333}
+.oy-sum{background:linear-gradient(135deg,#f8fffe,#f0fff8);border-left:4px solid #4CAF50;
+  border-radius:0 12px 12px 0;padding:13px 16px;margin:14px 0;
+  font-size:13px;line-height:1.7;color:#1a1a1a}
+.oy-kp{display:inline-block;background:#e8f5e9;color:#2e7d32;
+  border-radius:20px;padding:3px 11px;margin:2px;font-size:12px;font-weight:500}
+.oy-kn{display:inline-block;background:#fce4ec;color:#c62828;
+  border-radius:20px;padding:3px 11px;margin:2px;font-size:12px;font-weight:500}
+.oy-sr{display:flex;align-items:center;gap:10px;margin:6px 0}
+.oy-sl{font-size:12px;color:#555;width:56px;flex-shrink:0}
+.oy-st{flex:1;background:#eee;border-radius:4px;height:8px;overflow:hidden}
+.oy-sf{height:100%;border-radius:4px}
+.oy-sn{font-size:12px;font-weight:700;width:28px;text-align:right;flex-shrink:0}
+.oy-cb{display:block;width:100%;margin-top:20px;padding:11px;
+  background:#1a1a1a;color:#fff;border:none;border-radius:10px;
+  font-size:14px;font-weight:600;cursor:pointer;font-family:inherit}
+.oy-cb:hover{background:#333}
+</style>
+"""
+
+# 팝업 HTML 생성
+def make_popup_html(pid):
+    p = PRODUCTS[pid]
+    ins = insights.get(pid)
+    color = p["color"]
+    close_btn = '<button class="oy-pc" onclick="oyClose()">✕</button>'
+
+    if not ins:
+        return f"""
+<div id="oy-popup-{pid}" class="oy-popup-overlay" onclick="if(event.target===this)oyClose()">
+ <div class="oy-popup-box">
+  <div class="oy-ph"><div class="oy-pt">{p['emoji']} {p['name']}</div>{close_btn}</div>
+  <div style="text-align:center;padding:40px 0;color:#888">
+    <div style="font-size:36px">📭</div>
+    <div style="margin-top:10px;font-size:14px">리뷰 데이터가 없습니다.</div>
+  </div>
+  <button class="oy-cb" onclick="oyClose()">닫기</button>
+ </div>
 </div>"""
 
-        pos_html = "".join(f'<span class="kw-pos">✓ {k}</span>' for k in pos_kws)
-        neg_html = "".join(f'<span class="kw-neg">△ {k}</span>' for k in neg_kws) if neg_kws else '<span style="color:#aaa;font-size:13px">특이사항 없음</span>'
-        persona_html = "".join(f'<li style="font-size:13px;color:#444;margin:5px 0">{p}</li>' for p in personas)
+    overall   = ins.get("overall_score", 80)
+    pos_ratio = ins.get("positive_ratio", 75)
+    summary   = ins.get("summary", "")
+    pos_kws   = ins.get("positive_keywords", [])
+    neg_kws   = ins.get("negative_keywords", [])
+    skin_sc   = ins.get("skin_scores", {})
+    best_for  = ins.get("best_for", "")
+    caution   = ins.get("caution", "")
+    personas  = ins.get("one_line_personas", [])
 
-        popup = f"""
-<div class="popup-overlay" onclick="if(event.target===this)window.location.href='{close_url}'">
- <div class="popup-box">
+    skin_bars = "".join(f"""
+<div class="oy-sr">
+  <div class="oy-sl">{sk}</div>
+  <div class="oy-st"><div class="oy-sf" style="width:{sc}%;background:{color}"></div></div>
+  <div class="oy-sn" style="color:{color}">{sc}</div>
+</div>""" for sk, sc in skin_sc.items())
 
-  <div class="popup-header">
+    pos_html = "".join(f'<span class="oy-kp">✓ {k}</span>' for k in pos_kws)
+    neg_html = "".join(f'<span class="oy-kn">△ {k}</span>' for k in neg_kws) or '<span style="color:#aaa;font-size:12px">특이사항 없음</span>'
+    persona_html = "".join(f'<li style="font-size:13px;color:#444;margin:4px 0">{p2}</li>' for p2 in personas)
+
+    return f"""
+<div id="oy-popup-{pid}" class="oy-popup-overlay" onclick="if(event.target===this)oyClose()">
+ <div class="oy-popup-box">
+  <div class="oy-ph">
     <div>
-      <div style="font-size:11px;color:{color};font-weight:600;margin-bottom:3px">{product['brand']} · AI 리뷰 분석</div>
-      <div class="popup-title">{product['emoji']} {product['name']}</div>
+      <div style="font-size:11px;color:{color};font-weight:600;margin-bottom:3px">{p['brand']} · AI 리뷰 분석</div>
+      <div class="oy-pt">{p['emoji']} {p['name']}</div>
     </div>
-    <a href="{close_url}" class="popup-close">✕</a>
+    {close_btn}
   </div>
 
-  <!-- 종합 스코어 -->
-  <div style="display:flex;gap:12px;margin-bottom:18px">
-    <div style="flex:1;background:{product['bg']};border-radius:14px;padding:18px;text-align:center">
-      <div style="font-size:11px;color:#888;margin-bottom:4px">AI 종합 점수</div>
-      <div style="font-size:48px;font-weight:800;color:{color};line-height:1">{overall}</div>
+  <div style="display:flex;gap:10px;margin-bottom:16px">
+    <div style="flex:1;background:{p['bg']};border-radius:14px;padding:16px;text-align:center">
+      <div style="font-size:11px;color:#888;margin-bottom:3px">AI 종합 점수</div>
+      <div style="font-size:44px;font-weight:800;color:{color};line-height:1">{overall}</div>
       <div style="font-size:11px;color:#aaa;margin-top:2px">/ 100</div>
     </div>
-    <div style="flex:1;background:#fafafa;border-radius:14px;padding:18px;text-align:center">
-      <div style="font-size:11px;color:#888;margin-bottom:4px">구매자 만족도</div>
-      <div style="font-size:48px;font-weight:800;color:#4CAF50;line-height:1">{pos_ratio}<span style="font-size:20px">%</span></div>
+    <div style="flex:1;background:#fafafa;border-radius:14px;padding:16px;text-align:center">
+      <div style="font-size:11px;color:#888;margin-bottom:3px">구매자 만족도</div>
+      <div style="font-size:44px;font-weight:800;color:#4CAF50;line-height:1">{pos_ratio}<span style="font-size:18px">%</span></div>
       <div style="font-size:11px;color:#aaa;margin-top:2px">긍정 리뷰 비율</div>
     </div>
   </div>
 
-  <!-- 요약 -->
-  <div class="summary-box">💬 {summary}</div>
+  <div class="oy-sum">💬 {summary}</div>
 
-  <!-- 피부타입 적합도 -->
-  <div style="margin-bottom:18px">
-    <div style="font-size:13px;font-weight:700;color:#1a1a1a;margin-bottom:10px">피부타입별 적합도</div>
+  <div style="margin-bottom:16px">
+    <div style="font-size:12px;font-weight:700;color:#1a1a1a;margin-bottom:8px">피부타입별 적합도</div>
     {skin_bars}
   </div>
 
-  <!-- 키워드 -->
-  <div style="margin-bottom:18px">
-    <div style="font-size:13px;font-weight:700;color:#1a1a1a;margin-bottom:8px">리뷰 키워드</div>
+  <div style="margin-bottom:16px">
+    <div style="font-size:12px;font-weight:700;color:#1a1a1a;margin-bottom:6px">리뷰 키워드</div>
     <div>{pos_html}</div>
-    <div style="margin-top:6px">{neg_html}</div>
+    <div style="margin-top:4px">{neg_html}</div>
   </div>
 
-  <!-- 추천 / 주의 -->
-  <div style="display:flex;gap:10px;margin-bottom:18px">
-    <div style="flex:1;background:#e8f5e9;border-radius:12px;padding:14px">
-      <div style="font-size:11px;font-weight:700;color:#2e7d32;margin-bottom:6px">✅ 이런 분께 추천</div>
-      <div style="font-size:13px;color:#1b5e20;line-height:1.5">{best_for}</div>
+  <div style="display:flex;gap:8px;margin-bottom:16px">
+    <div style="flex:1;background:#e8f5e9;border-radius:12px;padding:12px">
+      <div style="font-size:11px;font-weight:700;color:#2e7d32;margin-bottom:4px">✅ 추천</div>
+      <div style="font-size:12px;color:#1b5e20;line-height:1.5">{best_for}</div>
     </div>
-    <div style="flex:1;background:#fff8e1;border-radius:12px;padding:14px">
-      <div style="font-size:11px;font-weight:700;color:#e65100;margin-bottom:6px">⚠️ 참고사항</div>
-      <div style="font-size:13px;color:#bf360c;line-height:1.5">{caution}</div>
+    <div style="flex:1;background:#fff8e1;border-radius:12px;padding:12px">
+      <div style="font-size:11px;font-weight:700;color:#e65100;margin-bottom:4px">⚠️ 참고</div>
+      <div style="font-size:12px;color:#bf360c;line-height:1.5">{caution}</div>
     </div>
   </div>
 
-  <!-- 구매자 인사이트 -->
-  {"" if not persona_html else f'<div style="margin-bottom:18px"><div style="font-size:13px;font-weight:700;color:#1a1a1a;margin-bottom:8px">📊 구매자 인사이트</div><ul style="margin:0;padding-left:18px">{persona_html}</ul></div>'}
+  {'<div style="margin-bottom:14px"><div style="font-size:12px;font-weight:700;color:#1a1a1a;margin-bottom:6px">📊 구매자 인사이트</div><ul style="margin:0;padding-left:16px">' + persona_html + '</ul></div>' if persona_html else ''}
 
-  <a href="{close_url}"><button class="close-btn">✕ 닫기</button></a>
+  <button class="oy-cb" onclick="oyClose()">✕ 닫기</button>
  </div>
-</div>
-"""
-    else:
-        popup = f"""
-<div class="popup-overlay" onclick="if(event.target===this)window.location.href='{close_url}'">
- <div class="popup-box">
-  <div class="popup-header">
-    <div class="popup-title">{product['emoji']} {product['name']}</div>
-    <a href="{close_url}" class="popup-close">✕</a>
-  </div>
-  <div style="text-align:center;padding:40px 0;color:#888">
-    <div style="font-size:40px">📭</div>
-    <div style="margin:12px 0">리뷰 데이터가 없습니다.</div>
-    <div style="font-size:12px">크롤러를 실행하여 데이터를 수집해주세요.</div>
-  </div>
-  <a href="{close_url}"><button class="close-btn">닫기</button></a>
- </div>
-</div>
+</div>"""
+
+popups_html = "\n".join(make_popup_html(pid) for pid in PRODUCTS)
+
+popup_js = """
+<script>
+function openProduct(id) {
+  document.querySelectorAll('.oy-popup-overlay').forEach(el => el.classList.remove('on'));
+  var el = document.getElementById('oy-popup-' + id);
+  if (el) { el.classList.add('on'); document.body.style.overflow='hidden'; }
+}
+function oyClose() {
+  document.querySelectorAll('.oy-popup-overlay').forEach(el => el.classList.remove('on'));
+  document.body.style.overflow='';
+}
+document.addEventListener('keydown', function(e){ if(e.key==='Escape') oyClose(); });
+</script>
 """
 
-    st.markdown(popup, unsafe_allow_html=True)
+# HTML에 팝업 주입 (body 닫기 전에)
+inject = popup_css + popups_html + popup_js
+html = html.replace("</body>", inject + "</body>")
+
+st.components.v1.html(html, height=1000, scrolling=True)
