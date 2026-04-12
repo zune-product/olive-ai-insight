@@ -551,48 +551,21 @@ font-size:13px;font-weight:600;text-decoration:none;transition:all .15s}
   </div>
 </footer>
 
-<!-- MODAL -->
-<div class="modal-overlay" id="modal">
-  <div class="modal">
-    <button class="modal-close" onclick="closeModal()">×</button>
-    <h2 id="modal-title">상품명</h2>
-    <p id="modal-desc">이 상품의 AI 리뷰 분석을 확인하시겠습니까?<br>수집된 리뷰 데이터를 기반으로 감성 분석, 페르소나 매핑, 미충족 니즈를 분석합니다.</p>
-    <div class="modal-btn">
-      <a href="#" id="modal-link" class="btn-primary">🤖 AI 분석 보기</a>
-      <a href="#" onclick="closeModal();return false" class="btn-secondary">닫기</a>
-    </div>
-  </div>
-</div>
-
 <script>
-// ✅ Streamlit Cloud 배포 URL — 실제 URL로 변경하세요
-// 예: 'https://your-app-name.streamlit.app'
-window.STREAMLIT_URL = 'https://olive-ai-insight.streamlit.app';
+// AI 리뷰 분석 버튼 클릭 → Streamlit 팝업 트리거
+function openProduct(id) {
+  // Streamlit Cloud에서는 iframe 중첩 구조:
+  // 브라우저 → Streamlit iframe → oliveyoung HTML iframe
+  // window.top = 최상위 브라우저 창 = Streamlit URL 직접 변경
+  try {
+    window.top.location.href = window.top.location.origin + window.top.location.pathname + '?product=' + id;
+  } catch(e) {
+    // cross-origin fallback
+    window.parent.location.href = '?product=' + id;
+  }
+}
 </script>
 <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
-const PRODUCTS = {
-  1: { name: '라운드랩 1025 독도 토너', page: '?product=1' },
-  2: { name: '아누아 어성초 77 수딩 토너', page: '?product=2' },
-  3: { name: '토리든 다이브인 히알루론산 세럼', page: '?product=3' },
-  4: { name: '구달 청귤 비타C 잡티케어 세럼', page: '?product=4' },
-};
-
-function openProduct(id) {
-  const p = PRODUCTS[id];
-  document.getElementById('modal-title').textContent = p.name;
-
-  // Streamlit Cloud URL 자동 감지 또는 상대경로 사용
-  const base = window.STREAMLIT_URL || '';
-  document.getElementById('modal-link').href = base + p.page;
-  document.getElementById('modal-link').target = base ? '_blank' : '_self';
-  document.getElementById('modal').classList.add('show');
-}
-function closeModal() {
-  document.getElementById('modal').classList.remove('show');
-}
-document.getElementById('modal').addEventListener('click', function(e) {
-  if (e.target === this) closeModal();
-});
 
 function setTab(el, cat) {
   document.querySelectorAll('.rank-tab').forEach(t => t.classList.remove('on'));
