@@ -19,7 +19,7 @@ PRODUCTS = {
     4: {"name":"구달 청귤 비타C 잡티케어 세럼",  "brand":"구달",    "filename":"product_4_goodal_serum.csv",   "color":"#f57f17","bg":"#fffde7","emoji":"🍊"},
 }
 
-st.set_page_config(page_title="🌿 OliveAI Insight", layout="wide", initial_sidebar_bar_state="collapsed")
+st.set_page_config(page_title="🌿 OliveAI Insight", layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown("""
 <style>
