@@ -136,6 +136,39 @@ if not os.path.exists(html_path):
 with open(html_path, "r", encoding="utf-8") as f:
     html = f.read()
 
+# ── 상품 이미지 교체 (data/ 폴더 이미지 → base64 embed) ──
+import base64
+_img_files = sorted([f for f in os.listdir(DATA_DIR) if f.lower().endswith(('.jpg','.jpeg','.png','.webp'))])
+_img_b64 = {}
+for i, fname in enumerate(_img_files, 1):
+    _ext  = fname.split('.')[-1].lower()
+    _mime = 'image/png' if _ext == 'png' else 'image/jpeg'
+    with open(os.path.join(DATA_DIR, fname), 'rb') as _f:
+        _img_b64[i] = f"data:{_mime};base64,{base64.b64encode(_f.read()).decode()}"
+
+# 가짜 이미지 div → <img> 태그로 교체 (파일명 순서 1~4 = 상품 1~4)
+_fake_imgs = [
+    '<div style="width:100%;height:100%;background:linear-gradient(135deg,#e8f4fd,#c5e3f7);',
+    '<div style="width:100%;height:100%;background:linear-gradient(135deg,#f0faf0,#d4f0d4);',
+    '<div style="width:100%;height:100%;background:linear-gradient(135deg,#e8f0fe,#c5d4f7);',
+    '<div style="width:100%;height:100%;background:linear-gradient(135deg,#fffde7,#fff9c4);',
+]
+_rank_ends = [
+    '<div class="rank-badge top3">1</div>',
+    '<div class="rank-badge top3">2</div>',
+    '<div class="rank-badge top3">3</div>',
+    '<div class="rank-badge top3">4</div>',
+]
+for rank in range(1, 5):
+    if rank not in _img_b64:
+        continue
+    _fake_start = html.find(_fake_imgs[rank-1])
+    _fake_end   = html.find(_rank_ends[rank-1], _fake_start)
+    if _fake_start == -1 or _fake_end == -1:
+        continue
+    _img_tag = f'<img src="{_img_b64[rank]}" alt="상품{rank}" style="width:100%;height:100%;object-fit:cover;display:block">\n        '
+    html = html[:_fake_start] + _img_tag + html[_fake_end:]
+
 popup_css = """<style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap');
 .oy-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;
